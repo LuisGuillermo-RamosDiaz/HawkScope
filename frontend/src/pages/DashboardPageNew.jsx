@@ -305,7 +305,7 @@ const DashboardPage = () => {
               />
               <span className="text-text-secondary">RAM</span>
             </div>
-          </div>
+          </motion.div>
         </div>
         
         <MetricsChart data={metrics} loading={loading} />

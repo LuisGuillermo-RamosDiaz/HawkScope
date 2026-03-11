@@ -3,13 +3,8 @@ import api from '../utils/api'
 const authService = {
   // Login de usuario
   login: async (credentials) => {
-    try {
-      const response = await api.post('/auth/login', credentials)
-      return response.data
-    } catch (error) {
-      // Propagar el error para manejo específico
-      throw error
-    }
+    const response = await api.post('/auth/login', credentials)
+    return response.data
   },
 
   // Logout de usuario
@@ -24,22 +19,14 @@ const authService = {
 
   // Refrescar token
   refreshToken: async () => {
-    try {
-      const response = await api.post('/auth/refresh')
-      return response.data
-    } catch (error) {
-      throw error
-    }
+    const response = await api.post('/auth/refresh')
+    return response.data
   },
 
   // Verificar estado del token
   verifyToken: async () => {
-    try {
-      const response = await api.get('/auth/verify')
-      return response.data
-    } catch (error) {
-      throw error
-    }
+    const response = await api.get('/auth/verify')
+    return response.data
   }
 }
 
