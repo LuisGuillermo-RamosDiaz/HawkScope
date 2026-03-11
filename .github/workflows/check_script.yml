@@ -1,16 +1,43 @@
-name: Python Syntax Check
-on: [push]
+name: Python Agent CI
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'agente/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'agente/**'
 
 jobs:
-  verify:
+  security-and-syntax:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./agente
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - name: Install dependencies
-        run: pip install -r agente/requirements.txt
-      - name: Check for syntax errors
-        run: python -m py_compile agente/monitor.py
+    - name: Checkout del código
+      uses: actions/checkout@v4
+
+    - name: Configurar Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip' # Nivel producción: Cachea dependencias de requirements.txt
+
+    - name: Instalar dependencias base y de análisis
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 bandit
+
+    - name: Verificación estricta de sintaxis
+      run: python -m py_compile monitor.py
+
+    - name: Linting con Flake8 (Convenciones PEP8)
+      run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: Escáner de vulnerabilidades (Bandit)
+      run: bandit -r . -ll -ii # Ignora alertas bajas, enfocado en críticos
