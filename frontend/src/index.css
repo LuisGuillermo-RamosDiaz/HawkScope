@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables CSS personalizadas */
+:root {
+  --color-primary-dark: #0D0D0D;
+  --color-accent-cyan: #36BFB1;
+  --color-alert-red: #FF4C4C;
+  --color-secondary: #1A1A1A;
+  --color-tertiary: #262626;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #B0B0B0;
+}
+
+/* Estilos base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--color-primary-dark);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Componentes personalizados */
+@layer components {
+  .btn-primary {
+    @apply bg-accent-cyan text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-all duration-200 font-medium;
+  }
+  
+  .btn-danger {
+    @apply bg-alert-red text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-all duration-200 font-medium;
+  }
+  
+  .card {
+    @apply bg-secondary border border-gray-700 rounded-lg p-4 shadow-lg;
+  }
+  
+  .input-field {
+    @apply bg-tertiary border border-gray-600 rounded-lg px-3 py-2 text-primary placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-accent-cyan focus:border-transparent;
+  }
+}
