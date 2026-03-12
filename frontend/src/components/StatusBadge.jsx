@@ -26,8 +26,8 @@ const statusConfig = {
     label: 'Critical',
   },
   offline: {
-    bg: 'bg-status-offline',
-    text: 'text-status-offline',
+    bg: 'bg-gray-500',
+    text: 'text-gray-400',
     glow: 'rgba(107, 114, 128, 0.4)',
     label: 'Offline',
   },
@@ -45,11 +45,12 @@ const StatusBadge = ({ status = 'healthy', label = null, pulse = true, size = 's
 
   const dotSize = size === 'xs' ? 'w-1.5 h-1.5' : 'w-2 h-2'
   const textSize = size === 'xs' ? 'text-[10px]' : 'text-xs'
-  const padSize = size === 'xs' ? 'px-1.5 py-0.5' : 'px-2.5 py-1'
+  const padSize = size === 'xs' ? 'px-2 py-0.5' : 'px-2.5 py-1'
 
   return (
-    <span className={`inline-flex items-center gap-1.5 ${padSize} rounded-full bg-opacity-10 ${config.text}`}
-      style={{ background: `${config.glow.replace('0.6', '0.1')}` }}
+    <span
+      className={`inline-flex items-center gap-1.5 ${padSize} rounded-full ${config.text}`}
+      style={{ background: config.glow.replace(/[\d.]+\)$/, '0.1)') }}
     >
       <motion.span
         className={`${dotSize} rounded-full ${config.bg}`}

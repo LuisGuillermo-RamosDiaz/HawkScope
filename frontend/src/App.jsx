@@ -1,76 +1,45 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import ResourcesPage from './pages/ResourcesPage'
-import KPIsPage from './pages/KPIsPage'
-import AuditPage from './pages/AuditPage'
-import SecurityPage from './pages/SecurityPage'
-import SettingsPage from './pages/SettingsPage'
+import PageLoader from './components/PageLoader'
+
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const ResourcesPage = lazy(() => import('./pages/ResourcesPage'))
+const KPIsPage = lazy(() => import('./pages/KPIsPage'))
+const AuditPage = lazy(() => import('./pages/AuditPage'))
+const SecurityPage = lazy(() => import('./pages/SecurityPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+
+const ProtectedLayout = ({ children }) => (
+  <ProtectedRoute>
+    <Layout>
+      <Suspense fallback={<PageLoader />}>
+        {children}
+      </Suspense>
+    </Layout>
+  </ProtectedRoute>
+)
 
 function App() {
   return (
     <Routes>
-      {/* Ruta pública de login */}
-      <Route path="/login" element={<LoginPage />} />
-      
-      {/* Rutas protegidas */}
-      <Route path="/" element={
-        <ProtectedRoute>
-          <Layout>
-            <Navigate to="/dashboard" replace />
-          </Layout>
-        </ProtectedRoute>
+      <Route path="/login" element={
+        <Suspense fallback={<PageLoader fullScreen />}>
+          <LoginPage />
+        </Suspense>
       } />
-      
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <Layout>
-            <DashboardPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/resources" element={
-        <ProtectedRoute>
-          <Layout>
-            <ResourcesPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/kpis" element={
-        <ProtectedRoute>
-          <Layout>
-            <KPIsPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/audit" element={
-        <ProtectedRoute>
-          <Layout>
-            <AuditPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/security" element={
-        <ProtectedRoute>
-          <Layout>
-            <SecurityPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <Layout>
-            <SettingsPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
+
+      <Route path="/" element={<ProtectedLayout><Navigate to="/dashboard" replace /></ProtectedLayout>} />
+      <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
+      <Route path="/resources" element={<ProtectedLayout><ResourcesPage /></ProtectedLayout>} />
+      <Route path="/kpis" element={<ProtectedLayout><KPIsPage /></ProtectedLayout>} />
+      <Route path="/audit" element={<ProtectedLayout><AuditPage /></ProtectedLayout>} />
+      <Route path="/security" element={<ProtectedLayout><SecurityPage /></ProtectedLayout>} />
+      <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
+
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }
