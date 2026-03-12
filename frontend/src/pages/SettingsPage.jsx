@@ -5,6 +5,36 @@ import Icon from '../components/icons/Icon'
 import useAuthStore from '../store/authStore'
 import { StaggerContainer, StaggerItem } from '../components/animations/StaggerContainer'
 
+// Definidos fuera del componente para que React no los recree en cada render
+// y framer-motion no re-anime todos los toggles al cambiar uno solo.
+const Toggle = ({ enabled, onChange }) => (
+  <button
+    onClick={() => onChange(!enabled)}
+    className={`relative w-10 h-5 rounded-full transition-colors ${
+      enabled ? 'bg-accent-cyan/20' : 'bg-surface-4'
+    }`}
+  >
+    <motion.div
+      className={`absolute top-0.5 w-4 h-4 rounded-full ${
+        enabled ? 'bg-accent-cyan' : 'bg-gray-500'
+      }`}
+      animate={{ left: enabled ? '22px' : '2px' }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      style={{ boxShadow: enabled ? '0 0 6px rgba(0,240,255,0.5)' : 'none' }}
+    />
+  </button>
+)
+
+const SettingRow = ({ label, description, children }) => (
+  <div className="flex items-center justify-between py-3.5 border-b border-white/[0.03] last:border-0">
+    <div className="flex-1 min-w-0 mr-4">
+      <p className="text-sm text-text-primary font-medium">{label}</p>
+      {description && <p className="text-[10px] text-text-muted mt-0.5">{description}</p>}
+    </div>
+    {children}
+  </div>
+)
+
 const SettingsPage = () => {
   const { user } = useAuthStore()
   const [activeSection, setActiveSection] = useState('general')
@@ -35,34 +65,6 @@ const SettingsPage = () => {
     { key: 'security', label: 'Seguridad', icon: 'shield' },
     { key: 'system', label: 'Sistema', icon: 'server' },
   ]
-
-  const Toggle = ({ enabled, onChange }) => (
-    <button
-      onClick={() => onChange(!enabled)}
-      className={`relative w-10 h-5 rounded-full transition-colors ${
-        enabled ? 'bg-accent-cyan/20' : 'bg-surface-4'
-      }`}
-    >
-      <motion.div
-        className={`absolute top-0.5 w-4 h-4 rounded-full ${
-          enabled ? 'bg-accent-cyan' : 'bg-gray-500'
-        }`}
-        animate={{ left: enabled ? '22px' : '2px' }}
-        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-        style={{ boxShadow: enabled ? '0 0 6px rgba(0,240,255,0.5)' : 'none' }}
-      />
-    </button>
-  )
-
-  const SettingRow = ({ label, description, children }) => (
-    <div className="flex items-center justify-between py-3.5 border-b border-white/[0.03] last:border-0">
-      <div className="flex-1 min-w-0 mr-4">
-        <p className="text-sm text-text-primary font-medium">{label}</p>
-        {description && <p className="text-[10px] text-text-muted mt-0.5">{description}</p>}
-      </div>
-      {children}
-    </div>
-  )
 
   return (
     <StaggerContainer className="space-y-5">
@@ -153,7 +155,7 @@ const SettingsPage = () => {
                     onChange={(e) => updateSetting('language', e.target.value)}
                     className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]"
                   >
-                    <option value="es">Espanol</option>
+                    <option value="es">Español</option>
                     <option value="en">English</option>
                   </select>
                 </SettingRow>

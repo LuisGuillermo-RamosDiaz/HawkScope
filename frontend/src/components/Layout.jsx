@@ -6,14 +6,44 @@ import Toast from './Toast'
 import { useToast } from '../hooks/useToast'
 import Icon from './icons/Icon'
 
+const mockNotifications = [
+  { id: 1, type: 'critical', title: 'Brute force detectado', desc: 'IP 198.51.100.23 bloqueada', time: '2m', read: false },
+  { id: 2, type: 'warning', title: 'CPU alta en worker-03', desc: 'Uso sostenido al 87% por 5 min', time: '7m', read: false },
+  { id: 3, type: 'success', title: 'Deploy exitoso prod-api-01', desc: 'Version v2.4.1 en produccion', time: '25m', read: true },
+  { id: 4, type: 'info', title: 'Backup completado', desc: 'db-main — 2.4 GB guardados', time: '1h', read: true },
+  { id: 5, type: 'warning', title: 'Certificado SSL proxima caducidad', desc: 'api-legacy caduca en 7 dias', time: '3h', read: true },
+]
+
+const notifColors = {
+  critical: { dot: 'bg-status-critical', bg: 'bg-status-critical/8', border: 'border-status-critical/10', text: 'text-status-critical' },
+  warning:  { dot: 'bg-status-warning',  bg: 'bg-status-warning/8',  border: 'border-status-warning/10',  text: 'text-status-warning' },
+  success:  { dot: 'bg-status-healthy',  bg: 'bg-status-healthy/8',  border: 'border-status-healthy/10',  text: 'text-status-healthy' },
+  info:     { dot: 'bg-accent-blue',     bg: 'bg-accent-blue/8',     border: 'border-accent-blue/10',     text: 'text-accent-blue' },
+}
+
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [clock, setClock] = useState('')
   const [dateStr, setDateStr] = useState('')
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [notifications, setNotifications] = useState(mockNotifications)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const { toasts, removeToast } = useToast()
+
+  const unreadCount = notifications.filter(n => !n.read).length
+
+  const handleLogoutConfirm = () => {
+    setShowLogoutModal(false)
+    logout()
+    navigate('/login')
+  }
+
+  const markAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
 
   useEffect(() => {
     const tick = () => {
@@ -36,8 +66,7 @@ const Layout = ({ children }) => {
   ], [])
 
   const handleLogout = () => {
-    logout()
-    navigate('/login')
+    setShowLogoutModal(true)
   }
 
   const currentPage = menuItems.find(item => item.path === location.pathname)
@@ -294,14 +323,107 @@ const Layout = ({ children }) => {
             </div>
 
             {/* Notifications */}
-            <button className="relative p-2 text-text-secondary hover:text-text-primary hover:bg-white/[0.04] rounded-lg transition-all">
-              <Icon name="bell" size={16} />
-              <motion.span
-                className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-status-critical rounded-full"
-                animate={{ scale: [1, 1.4, 1] }}
-                transition={{ repeat: Infinity, duration: 2 }}
-              />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setNotifOpen(prev => !prev)}
+                className={`relative p-2 rounded-lg transition-all ${notifOpen ? 'text-text-primary bg-white/[0.06]' : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.04]'}`}
+              >
+                <Icon name="bell" size={16} />
+                {unreadCount > 0 && (
+                  <motion.span
+                    className="absolute top-1 right-1 min-w-[14px] h-[14px] bg-status-critical rounded-full flex items-center justify-center text-[8px] font-bold text-white leading-none px-0.5"
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                  >
+                    {unreadCount}
+                  </motion.span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {notifOpen && (
+                  <>
+                    {/* Backdrop */}
+                    <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+
+                    <motion.div
+                      className="absolute right-0 top-full mt-2 w-80 z-50 glass-card overflow-hidden"
+                      style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+                        <div className="flex items-center gap-2">
+                          <Icon name="bell" size={14} className="text-accent-cyan" />
+                          <span className="text-sm font-semibold text-text-primary">Notificaciones</span>
+                          {unreadCount > 0 && (
+                            <span className="text-[9px] font-mono bg-status-critical/15 text-status-critical border border-status-critical/20 px-1.5 py-0.5 rounded-full">
+                              {unreadCount} nuevas
+                            </span>
+                          )}
+                        </div>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={markAllRead}
+                            className="text-[10px] text-text-muted hover:text-accent-cyan transition-colors"
+                          >
+                            Marcar todas
+                          </button>
+                        )}
+                      </div>
+
+                      {/* List */}
+                      <div className="max-h-80 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-10 text-text-muted">
+                            <Icon name="bell-off" size={28} className="mb-2 opacity-30" />
+                            <p className="text-xs">Sin notificaciones</p>
+                          </div>
+                        ) : (
+                          notifications.map((n, i) => {
+                            const c = notifColors[n.type] || notifColors.info
+                            return (
+                              <motion.div
+                                key={n.id}
+                                className={`flex items-start gap-3 px-4 py-3 border-b border-white/[0.03] last:border-0 cursor-pointer hover:bg-white/[0.02] transition-colors ${!n.read ? 'bg-white/[0.015]' : ''}`}
+                                initial={{ opacity: 0, x: -6 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.04 }}
+                                onClick={() => setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))}
+                              >
+                                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${c.dot} ${!n.read ? '' : 'opacity-30'}`}
+                                  style={!n.read ? { boxShadow: `0 0 6px currentColor` } : {}}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-[11px] font-medium leading-tight ${n.read ? 'text-text-secondary' : 'text-text-primary'}`}>
+                                    {n.title}
+                                  </p>
+                                  <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">{n.desc}</p>
+                                  <p className="text-[9px] text-text-muted mt-1 font-mono">hace {n.time}</p>
+                                </div>
+                                {!n.read && (
+                                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1 ${c.dot}`} />
+                                )}
+                              </motion.div>
+                            )
+                          })
+                        )}
+                      </div>
+
+                      {/* Footer */}
+                      <div className="px-4 py-2.5 border-t border-white/[0.06]">
+                        <button className="text-[10px] text-text-muted hover:text-text-primary transition-colors w-full text-center">
+                          Ver historial completo en Auditoria
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* User badge */}
             <div className="flex items-center gap-2 pl-3 border-l border-white/[0.06]">
@@ -356,6 +478,76 @@ const Layout = ({ children }) => {
           ))}
         </AnimatePresence>
       </div>
+
+      {/* ========== LOGOUT MODAL ========== */}
+      <AnimatePresence>
+        {showLogoutModal && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLogoutModal(false)}
+            />
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="glass-card w-full max-w-sm p-6 glow-red"
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Icon */}
+                <div className="flex justify-center mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-status-critical/10 border border-status-critical/20 flex items-center justify-center">
+                    <Icon name="log-out" size={22} className="text-status-critical" />
+                  </div>
+                </div>
+
+                {/* Text */}
+                <div className="text-center mb-6">
+                  <h3 className="text-base font-bold text-text-primary mb-1.5">Cerrar Sesion</h3>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    Tu sesion JWT sera invalidada y seras redirigido al login.
+                    ¿Confirmas que deseas salir?
+                  </p>
+                  <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-text-muted">
+                    <Icon name="user" size={10} />
+                    <span className="font-mono">{user?.email}</span>
+                    <span className="text-accent-cyan uppercase font-medium">{user?.role}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowLogoutModal(false)}
+                    className="btn-secondary flex-1 text-sm py-2.5"
+                  >
+                    Cancelar
+                  </button>
+                  <motion.button
+                    onClick={handleLogoutConfirm}
+                    className="btn-danger flex-1 flex items-center justify-center gap-2 text-sm py-2.5"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Icon name="log-out" size={14} />
+                    Salir
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

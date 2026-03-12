@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import GlassCard from '../components/GlassCard'
 import KpiCard from '../components/KpiCard'
+import StatusBadge from '../components/StatusBadge'
 import Icon from '../components/icons/Icon'
 import { StaggerContainer, StaggerItem } from '../components/animations/StaggerContainer'
 import { ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Area, ComposedChart, Line } from 'recharts'
