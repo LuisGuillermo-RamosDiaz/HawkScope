@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import GlassCard from '../components/GlassCard'
 import Icon from '../components/icons/Icon'
 import useAuthStore from '../store/authStore'
+import useSettingsStore from '../store/settingsStore'
+import { useToast } from '../hooks/useToast'
 import { StaggerContainer, StaggerItem } from '../components/animations/StaggerContainer'
 
-// Definidos fuera del componente para que React no los recree en cada render
-// y framer-motion no re-anime todos los toggles al cambiar uno solo.
 const Toggle = ({ enabled, onChange }) => (
   <button
     onClick={() => onChange(!enabled)}
@@ -36,42 +37,45 @@ const SettingRow = ({ label, description, children }) => (
 )
 
 const SettingsPage = () => {
+  const { t, i18n } = useTranslation()
   const { user } = useAuthStore()
+  const { settings: savedSettings, saveSettings } = useSettingsStore()
+  const { showSuccess } = useToast()
   const [activeSection, setActiveSection] = useState('general')
-  const [settings, setSettings] = useState({
-    refreshInterval: '10',
-    theme: 'dark',
-    language: 'es',
-    notifications: true,
-    soundAlerts: false,
-    emailReports: true,
-    compactMode: false,
-    animationsEnabled: true,
-    autoLock: '15',
-    twoFactor: false,
-    sessionTimeout: '60',
-    apiRateLimit: '100',
-    logRetention: '30',
-    backupSchedule: 'daily',
-  })
+  const [settings, setSettings] = useState(savedSettings)
+  const [hasChanges, setHasChanges] = useState(false)
+
+  useEffect(() => {
+    setSettings(savedSettings)
+  }, [savedSettings])
 
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }))
+    setHasChanges(true)
+    if (key === 'language') {
+      i18n.changeLanguage(value)
+    }
+  }
+
+  const handleSave = () => {
+    saveSettings(settings)
+    setHasChanges(false)
+    showSuccess(t('settings.savedToLocal'))
   }
 
   const sections = [
-    { key: 'general', label: 'General', icon: 'settings' },
-    { key: 'notifications', label: 'Notificaciones', icon: 'bell' },
-    { key: 'security', label: 'Seguridad', icon: 'shield' },
-    { key: 'system', label: 'Sistema', icon: 'server' },
+    { key: 'general', label: t('settings.general'), icon: 'settings' },
+    { key: 'notifications', label: t('settings.notificationsTitle'), icon: 'bell' },
+    { key: 'security', label: t('nav.security'), icon: 'shield' },
+    { key: 'system', label: t('settings.systemTitle'), icon: 'server' },
   ]
 
   return (
     <StaggerContainer className="space-y-5">
       <StaggerItem>
         <div>
-          <h1 className="text-xl font-bold text-text-primary mb-0.5">Configuracion</h1>
-          <p className="text-xs text-text-secondary">Preferencias del sistema y cuenta</p>
+          <h1 className="text-xl font-bold text-text-primary mb-0.5">{t('settings.title')}</h1>
+          <p className="text-xs text-text-secondary">{t('settings.subtitle')}</p>
         </div>
       </StaggerItem>
 
@@ -79,7 +83,6 @@ const SettingsPage = () => {
         {/* Sidebar */}
         <StaggerItem>
           <GlassCard padding="p-3" className="lg:sticky lg:top-6">
-            {/* User Info */}
             <div className="p-3 mb-3 rounded-lg bg-surface-2/50 border border-white/[0.03]">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-cyan/15 to-accent-purple/15 border border-accent-cyan/15 flex items-center justify-center text-accent-cyan text-sm font-bold">
@@ -92,11 +95,10 @@ const SettingsPage = () => {
               </div>
               <div className="flex items-center gap-2 text-[10px] text-text-muted">
                 <Icon name="clock" size={10} />
-                <span>Sesion activa</span>
+                <span>{t('settings.activeSession')}</span>
               </div>
             </div>
 
-            {/* Nav */}
             <div className="space-y-0.5">
               {sections.map(section => (
                 <button
@@ -131,17 +133,13 @@ const SettingsPage = () => {
                     <Icon name="settings" size={14} className="text-accent-cyan" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-text-primary">Configuracion General</h3>
-                    <p className="text-[10px] text-text-muted">Preferencias de interfaz y comportamiento</p>
+                    <h3 className="text-sm font-semibold text-text-primary">{t('settings.generalTitle')}</h3>
+                    <p className="text-[10px] text-text-muted">{t('settings.generalDesc')}</p>
                   </div>
                 </div>
 
-                <SettingRow label="Intervalo de Refresh" description="Frecuencia de actualizacion de datos en tiempo real">
-                  <select
-                    value={settings.refreshInterval}
-                    onChange={(e) => updateSetting('refreshInterval', e.target.value)}
-                    className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]"
-                  >
+                <SettingRow label={t('settings.refreshInterval')} description={t('settings.refreshIntervalDesc')}>
+                  <select value={settings.refreshInterval} onChange={(e) => updateSetting('refreshInterval', e.target.value)} className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]">
                     <option value="5">5 segundos</option>
                     <option value="10">10 segundos</option>
                     <option value="30">30 segundos</option>
@@ -149,22 +147,18 @@ const SettingsPage = () => {
                   </select>
                 </SettingRow>
 
-                <SettingRow label="Idioma" description="Idioma de la interfaz">
-                  <select
-                    value={settings.language}
-                    onChange={(e) => updateSetting('language', e.target.value)}
-                    className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]"
-                  >
+                <SettingRow label={t('settings.language')} description={t('settings.languageDesc')}>
+                  <select value={settings.language} onChange={(e) => updateSetting('language', e.target.value)} className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]">
                     <option value="es">Español</option>
                     <option value="en">English</option>
                   </select>
                 </SettingRow>
 
-                <SettingRow label="Modo Compacto" description="Reduce el espaciado para mostrar mas informacion">
+                <SettingRow label={t('settings.compactMode')} description={t('settings.compactModeDesc')}>
                   <Toggle enabled={settings.compactMode} onChange={(v) => updateSetting('compactMode', v)} />
                 </SettingRow>
 
-                <SettingRow label="Animaciones" description="Habilitar transiciones y efectos visuales">
+                <SettingRow label={t('settings.animations')} description={t('settings.animationsDesc')}>
                   <Toggle enabled={settings.animationsEnabled} onChange={(v) => updateSetting('animationsEnabled', v)} />
                 </SettingRow>
               </GlassCard>
@@ -177,20 +171,20 @@ const SettingsPage = () => {
                     <Icon name="bell" size={14} className="text-accent-amber" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-text-primary">Notificaciones</h3>
-                    <p className="text-[10px] text-text-muted">Gestiona como recibes las alertas</p>
+                    <h3 className="text-sm font-semibold text-text-primary">{t('settings.notificationsTitle')}</h3>
+                    <p className="text-[10px] text-text-muted">{t('settings.notificationsDesc')}</p>
                   </div>
                 </div>
 
-                <SettingRow label="Notificaciones Push" description="Recibir alertas en el navegador">
+                <SettingRow label={t('settings.pushNotifications')} description={t('settings.pushNotificationsDesc')}>
                   <Toggle enabled={settings.notifications} onChange={(v) => updateSetting('notifications', v)} />
                 </SettingRow>
 
-                <SettingRow label="Alertas Sonoras" description="Reproducir sonido en alertas criticas">
+                <SettingRow label={t('settings.soundAlerts')} description={t('settings.soundAlertsDesc')}>
                   <Toggle enabled={settings.soundAlerts} onChange={(v) => updateSetting('soundAlerts', v)} />
                 </SettingRow>
 
-                <SettingRow label="Reportes por Email" description="Recibir resumen diario de seguridad">
+                <SettingRow label={t('settings.emailReports')} description={t('settings.emailReportsDesc')}>
                   <Toggle enabled={settings.emailReports} onChange={(v) => updateSetting('emailReports', v)} />
                 </SettingRow>
 
@@ -198,8 +192,8 @@ const SettingsPage = () => {
                   <div className="flex items-start gap-3">
                     <Icon name="info" size={16} className="text-accent-amber mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-xs text-text-primary font-medium mb-0.5">Prioridad de Notificaciones</p>
-                      <p className="text-[10px] text-text-muted">Las alertas criticas siempre se muestran independientemente de la configuracion. Las alertas de tipo warning e info respetan las preferencias configuradas.</p>
+                      <p className="text-xs text-text-primary font-medium mb-0.5">{t('settings.notifPriority')}</p>
+                      <p className="text-[10px] text-text-muted">{t('settings.notifPriorityDesc')}</p>
                     </div>
                   </div>
                 </div>
@@ -213,21 +207,17 @@ const SettingsPage = () => {
                     <Icon name="shield" size={14} className="text-accent-purple" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-text-primary">Seguridad de la Cuenta</h3>
-                    <p className="text-[10px] text-text-muted">Autenticacion y control de acceso</p>
+                    <h3 className="text-sm font-semibold text-text-primary">{t('settings.securityTitle')}</h3>
+                    <p className="text-[10px] text-text-muted">{t('settings.securityDesc')}</p>
                   </div>
                 </div>
 
-                <SettingRow label="Autenticacion de Dos Factores" description="Agrega una capa extra de seguridad a tu cuenta">
+                <SettingRow label={t('settings.twoFactor')} description={t('settings.twoFactorDesc')}>
                   <Toggle enabled={settings.twoFactor} onChange={(v) => updateSetting('twoFactor', v)} />
                 </SettingRow>
 
-                <SettingRow label="Auto-Lock de Sesion" description="Bloqueo automatico tras periodo de inactividad">
-                  <select
-                    value={settings.autoLock}
-                    onChange={(e) => updateSetting('autoLock', e.target.value)}
-                    className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]"
-                  >
+                <SettingRow label={t('settings.autoLock')} description={t('settings.autoLockDesc')}>
+                  <select value={settings.autoLock} onChange={(e) => updateSetting('autoLock', e.target.value)} className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]">
                     <option value="5">5 minutos</option>
                     <option value="15">15 minutos</option>
                     <option value="30">30 minutos</option>
@@ -235,12 +225,8 @@ const SettingsPage = () => {
                   </select>
                 </SettingRow>
 
-                <SettingRow label="Timeout de Sesion" description="Tiempo maximo de sesion activa">
-                  <select
-                    value={settings.sessionTimeout}
-                    onChange={(e) => updateSetting('sessionTimeout', e.target.value)}
-                    className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]"
-                  >
+                <SettingRow label={t('settings.sessionTimeout')} description={t('settings.sessionTimeoutDesc')}>
+                  <select value={settings.sessionTimeout} onChange={(e) => updateSetting('sessionTimeout', e.target.value)} className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]">
                     <option value="30">30 minutos</option>
                     <option value="60">1 hora</option>
                     <option value="120">2 horas</option>
@@ -248,9 +234,8 @@ const SettingsPage = () => {
                   </select>
                 </SettingRow>
 
-                {/* Session info */}
                 <div className="mt-5 p-4 rounded-lg bg-surface-2/50 border border-white/[0.03]">
-                  <p className="text-[10px] text-text-muted uppercase tracking-widest mb-3 font-medium">Informacion de Sesion</p>
+                  <p className="text-[10px] text-text-muted uppercase tracking-widest mb-3 font-medium">{t('settings.sessionInfo')}</p>
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
                       <p className="text-text-muted">Email</p>
@@ -280,19 +265,15 @@ const SettingsPage = () => {
                     <Icon name="server" size={14} className="text-accent-emerald" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-text-primary">Configuracion del Sistema</h3>
-                    <p className="text-[10px] text-text-muted">Solo disponible para administradores</p>
+                    <h3 className="text-sm font-semibold text-text-primary">{t('settings.systemTitle')}</h3>
+                    <p className="text-[10px] text-text-muted">{t('settings.systemDesc')}</p>
                   </div>
                 </div>
 
                 {user?.role === 'admin' ? (
                   <>
-                    <SettingRow label="Rate Limit API" description="Limite de solicitudes por minuto por usuario">
-                      <select
-                        value={settings.apiRateLimit}
-                        onChange={(e) => updateSetting('apiRateLimit', e.target.value)}
-                        className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]"
-                      >
+                    <SettingRow label={t('settings.rateLimit')} description={t('settings.rateLimitDesc')}>
+                      <select value={settings.apiRateLimit} onChange={(e) => updateSetting('apiRateLimit', e.target.value)} className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]">
                         <option value="50">50 req/min</option>
                         <option value="100">100 req/min</option>
                         <option value="200">200 req/min</option>
@@ -300,12 +281,8 @@ const SettingsPage = () => {
                       </select>
                     </SettingRow>
 
-                    <SettingRow label="Retencion de Logs" description="Tiempo que se conservan los registros de auditoria">
-                      <select
-                        value={settings.logRetention}
-                        onChange={(e) => updateSetting('logRetention', e.target.value)}
-                        className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]"
-                      >
+                    <SettingRow label={t('settings.logRetention')} description={t('settings.logRetentionDesc')}>
+                      <select value={settings.logRetention} onChange={(e) => updateSetting('logRetention', e.target.value)} className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]">
                         <option value="7">7 dias</option>
                         <option value="30">30 dias</option>
                         <option value="90">90 dias</option>
@@ -313,21 +290,16 @@ const SettingsPage = () => {
                       </select>
                     </SettingRow>
 
-                    <SettingRow label="Backups Automaticos" description="Frecuencia de respaldo de la base de datos">
-                      <select
-                        value={settings.backupSchedule}
-                        onChange={(e) => updateSetting('backupSchedule', e.target.value)}
-                        className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]"
-                      >
+                    <SettingRow label={t('settings.autoBackup')} description={t('settings.autoBackupDesc')}>
+                      <select value={settings.backupSchedule} onChange={(e) => updateSetting('backupSchedule', e.target.value)} className="input-field py-1.5 px-3 text-xs w-auto min-w-[120px]">
                         <option value="hourly">Cada hora</option>
                         <option value="daily">Diario</option>
                         <option value="weekly">Semanal</option>
                       </select>
                     </SettingRow>
 
-                    {/* System Info */}
                     <div className="mt-5 p-4 rounded-lg bg-surface-2/50 border border-white/[0.03]">
-                      <p className="text-[10px] text-text-muted uppercase tracking-widest mb-3 font-medium">Informacion del Sistema</p>
+                      <p className="text-[10px] text-text-muted uppercase tracking-widest mb-3 font-medium">{t('settings.systemInfo')}</p>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                         {[
                           { label: 'Version', value: 'v2.0.0' },
@@ -348,9 +320,9 @@ const SettingsPage = () => {
                     <div className="w-14 h-14 rounded-xl bg-surface-3 border border-white/[0.04] flex items-center justify-center mb-4">
                       <Icon name="lock" size={24} className="text-text-muted" />
                     </div>
-                    <p className="text-sm font-medium mb-1">Acceso Restringido</p>
+                    <p className="text-sm font-medium mb-1">{t('settings.accessRestricted')}</p>
                     <p className="text-[11px] text-text-muted text-center max-w-xs">
-                      Solo los administradores pueden modificar la configuracion del sistema. Contacta a tu admin si necesitas cambios.
+                      {t('settings.accessRestrictedDesc')}
                     </p>
                   </div>
                 )}
@@ -359,14 +331,18 @@ const SettingsPage = () => {
 
             {/* Save button */}
             <div className="flex items-center justify-between mt-4">
-              <p className="text-[10px] text-text-muted">Los cambios se aplican automaticamente</p>
+              <p className="text-[10px] text-text-muted">
+                {hasChanges ? t('settings.changesAutoApplied') : t('settings.savedToLocal')}
+              </p>
               <motion.button
-                className="btn-primary flex items-center gap-2 text-xs px-4 py-2"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                className={`btn-primary flex items-center gap-2 text-xs px-4 py-2 ${!hasChanges ? 'opacity-50 cursor-not-allowed' : ''}`}
+                whileHover={hasChanges ? { scale: 1.02 } : {}}
+                whileTap={hasChanges ? { scale: 0.98 } : {}}
+                onClick={handleSave}
+                disabled={!hasChanges}
               >
                 <Icon name="save" size={13} />
-                <span>Guardar Cambios</span>
+                <span>{t('common.save')}</span>
               </motion.button>
             </div>
           </motion.div>

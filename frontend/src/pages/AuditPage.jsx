@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import GlassCard from '../components/GlassCard'
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
 import Icon from '../components/icons/Icon'
+import { useToast } from '../hooks/useToast'
+import { exportToCSV } from '../utils/exportUtils'
 import { StaggerContainer, StaggerItem } from '../components/animations/StaggerContainer'
 
 const mockAuditLogs = [
@@ -51,6 +54,8 @@ const actionIcons = {
 }
 
 const AuditPage = () => {
+  const { t } = useTranslation()
+  const { showSuccess } = useToast()
   const [filterAction, setFilterAction] = useState('ALL')
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
@@ -144,9 +149,23 @@ const AuditPage = () => {
             <p className="text-xs text-text-secondary">Registro de actividad y eventos de seguridad</p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="btn-secondary flex items-center gap-2 text-xs px-3 py-1.5">
+            <button
+              className="btn-secondary flex items-center gap-2 text-xs px-3 py-1.5"
+              onClick={() => {
+                exportToCSV(filteredLogs.map(l => ({
+                  timestamp: l.timestamp,
+                  user: l.user,
+                  action: l.action,
+                  resource: l.resource,
+                  ip: l.ip,
+                  status: l.status,
+                  details: l.details,
+                })), 'hawkscope_audit')
+                showSuccess(t('audit.exportSuccess'))
+              }}
+            >
               <Icon name="download" size={13} />
-              <span>Exportar</span>
+              <span>{t('audit.exportCSV')}</span>
             </button>
           </div>
         </div>

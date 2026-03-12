@@ -103,6 +103,13 @@ const iconMap = {
   'signal': Icons.Signal,
   'map-pin': Icons.MapPin,
   'crosshair': Icons.Crosshair,
+  'building': Icons.Building2,
+  'rocket': Icons.Rocket,
+  'play': Icons.Play,
+  'link': Icons.Link,
+  'trash-2': Icons.Trash2,
+  'edit': Icons.Pencil,
+  'maximize-2': Icons.Maximize2,
 }
 
 const Icon = memo(({
