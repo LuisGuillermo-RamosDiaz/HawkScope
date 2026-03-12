@@ -5,6 +5,7 @@ const glowMap = {
   emerald: 'glow-emerald',
   amber: 'glow-amber',
   red: 'glow-red',
+  purple: 'glow-purple',
   none: '',
 }
 

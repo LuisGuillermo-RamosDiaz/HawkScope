@@ -1,76 +1,70 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import ResourcesPage from './pages/ResourcesPage'
-import KPIsPage from './pages/KPIsPage'
-import AuditPage from './pages/AuditPage'
-import SecurityPage from './pages/SecurityPage'
-import SettingsPage from './pages/SettingsPage'
+import PageLoader from './components/PageLoader'
+
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const AgentSetupPage = lazy(() => import('./pages/AgentSetupPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const ResourcesPage = lazy(() => import('./pages/ResourcesPage'))
+const KPIsPage = lazy(() => import('./pages/KPIsPage'))
+const AuditPage = lazy(() => import('./pages/AuditPage'))
+const SecurityPage = lazy(() => import('./pages/SecurityPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const UsersPage = lazy(() => import('./pages/UsersPage'))
+
+const ProtectedLayout = ({ children, allowedRoles }) => (
+  <ProtectedRoute allowedRoles={allowedRoles}>
+    <Layout>
+      <Suspense fallback={<PageLoader />}>
+        {children}
+      </Suspense>
+    </Layout>
+  </ProtectedRoute>
+)
 
 function App() {
   return (
     <Routes>
-      {/* Ruta pública de login */}
-      <Route path="/login" element={<LoginPage />} />
-      
-      {/* Rutas protegidas */}
+      {/* Public routes */}
       <Route path="/" element={
+        <Suspense fallback={<PageLoader fullScreen />}>
+          <LandingPage />
+        </Suspense>
+      } />
+      <Route path="/login" element={
+        <Suspense fallback={<PageLoader fullScreen />}>
+          <LoginPage />
+        </Suspense>
+      } />
+      <Route path="/register" element={
+        <Suspense fallback={<PageLoader fullScreen />}>
+          <RegisterPage />
+        </Suspense>
+      } />
+
+      {/* Agent setup (authenticated, no layout) */}
+      <Route path="/setup" element={
         <ProtectedRoute>
-          <Layout>
-            <Navigate to="/dashboard" replace />
-          </Layout>
+          <Suspense fallback={<PageLoader fullScreen />}>
+            <AgentSetupPage />
+          </Suspense>
         </ProtectedRoute>
       } />
-      
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <Layout>
-            <DashboardPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/resources" element={
-        <ProtectedRoute>
-          <Layout>
-            <ResourcesPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/kpis" element={
-        <ProtectedRoute>
-          <Layout>
-            <KPIsPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/audit" element={
-        <ProtectedRoute>
-          <Layout>
-            <AuditPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/security" element={
-        <ProtectedRoute>
-          <Layout>
-            <SecurityPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <Layout>
-            <SettingsPage />
-          </Layout>
-        </ProtectedRoute>
-      } />
+
+      {/* Protected routes with layout */}
+      <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
+      <Route path="/resources" element={<ProtectedLayout><ResourcesPage /></ProtectedLayout>} />
+      <Route path="/kpis" element={<ProtectedLayout><KPIsPage /></ProtectedLayout>} />
+      <Route path="/audit" element={<ProtectedLayout allowedRoles={['admin', 'viewer']}><AuditPage /></ProtectedLayout>} />
+      <Route path="/security" element={<ProtectedLayout allowedRoles={['admin', 'operator']}><SecurityPage /></ProtectedLayout>} />
+      <Route path="/settings" element={<ProtectedLayout allowedRoles={['admin']}><SettingsPage /></ProtectedLayout>} />
+      <Route path="/users" element={<ProtectedLayout allowedRoles={['admin']}><UsersPage /></ProtectedLayout>} />
+
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }

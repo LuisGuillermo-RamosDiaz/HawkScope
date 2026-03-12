@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion'
+
 const Skeleton = ({ className = '', variant = 'rect', width, height }) => {
   const baseClass = 'skeleton-shimmer rounded'
 
@@ -27,29 +29,39 @@ const Skeleton = ({ className = '', variant = 'rect', width, height }) => {
   )
 }
 
-// Pre-built skeleton for KPI cards
 export const KpiCardSkeleton = () => (
   <div className="glass-card p-5 space-y-4">
     <div className="flex items-start justify-between">
-      <div className="space-y-2 flex-1">
-        <Skeleton variant="text" width="60%" height={12} />
-        <Skeleton variant="text" width="40%" height={28} />
-        <Skeleton variant="text" width="30%" height={12} />
+      <div className="space-y-3 flex-1">
+        <Skeleton variant="text" width="55%" height={10} />
+        <Skeleton variant="text" width="35%" height={26} />
+        <Skeleton variant="text" width="25%" height={10} />
       </div>
       <Skeleton variant="circle" width={44} height={44} className="rounded-xl" />
     </div>
+    <motion.div
+      className="h-[2px] rounded-full skeleton-shimmer"
+      initial={{ width: 0 }}
+      animate={{ width: '60%' }}
+      transition={{ duration: 1.5, ease: 'easeOut' }}
+    />
   </div>
 )
 
-// Pre-built skeleton for chart
 export const ChartSkeleton = () => (
   <div className="glass-card p-5 space-y-4">
     <div className="flex items-center justify-between">
-      <Skeleton variant="text" width="30%" height={18} />
-      <Skeleton variant="text" width="20%" height={14} />
+      <div className="flex items-center gap-2.5">
+        <Skeleton variant="circle" width={28} height={28} className="rounded-lg" />
+        <div className="space-y-1.5">
+          <Skeleton variant="text" width={120} height={14} />
+          <Skeleton variant="text" width={80} height={9} />
+        </div>
+      </div>
+      <Skeleton variant="text" width={80} height={14} />
     </div>
     <div className="flex items-end gap-1 h-48 pt-4">
-      {Array.from({ length: 24 }).map((_, i) => (
+      {Array.from({ length: 20 }).map((_, i) => (
         <Skeleton
           key={i}
           width="100%"
@@ -61,16 +73,15 @@ export const ChartSkeleton = () => (
   </div>
 )
 
-// Pre-built skeleton for table rows
 export const TableSkeleton = ({ rows = 5 }) => (
-  <div className="space-y-3">
+  <div className="space-y-0">
     {Array.from({ length: rows }).map((_, i) => (
-      <div key={i} className="flex items-center gap-4 px-4 py-3">
-        <Skeleton variant="circle" width={32} height={32} />
-        <Skeleton variant="text" width="25%" height={14} />
-        <Skeleton variant="text" width="20%" height={14} />
-        <Skeleton variant="text" width="15%" height={14} />
-        <Skeleton variant="text" width="10%" height={24} className="rounded-full ml-auto" />
+      <div key={i} className="flex items-center gap-4 px-4 py-3.5 border-b border-white/[0.03]">
+        <Skeleton variant="circle" width={28} height={28} className="rounded-lg" />
+        <Skeleton variant="text" width="22%" height={13} />
+        <Skeleton variant="text" width="18%" height={13} />
+        <Skeleton variant="text" width="15%" height={13} />
+        <Skeleton variant="text" width="10%" height={22} className="rounded-full ml-auto" />
       </div>
     ))}
   </div>
