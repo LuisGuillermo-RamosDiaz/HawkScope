@@ -322,7 +322,7 @@ const LandingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {testimonials.map((t, i) => (
               <motion.div key={t.name} className="glass-card p-6" {...stagger} transition={{ delay: i * 0.1, duration: 0.5 }}>
-                <p className="text-xs text-text-secondary leading-relaxed mb-5 italic">"{t.text}"</p>
+                <p className="text-xs text-text-secondary leading-relaxed mb-5 italic">&quot;{t.text}&quot;</p>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-cyan/15 to-accent-purple/15 border border-accent-cyan/15 flex items-center justify-center text-accent-cyan text-xs font-bold">
                     {t.avatar}
