@@ -1,0 +1,38 @@
+name: Frontend CI (React/Vite)
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'frontend/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+    - name: Checkout del código
+      uses: actions/checkout@v4
+
+    - name: Configurar Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm' # Nivel producción: Cache de node_modules
+        cache-dependency-path: './frontend/package-lock.json'
+
+    - name: Instalar dependencias limpias (Producción)
+      run: npm ci
+
+    - name: Generar Build de Producción (Vite)
+      run: npm run build
+
+    - name: Analizar código (Linting de React)
+      run: npm run lint --if-present
