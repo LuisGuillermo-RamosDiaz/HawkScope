@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/icons/Icon'
+import logo from '../assets/logo.svg'
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -85,9 +86,7 @@ const LandingPage = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4" style={{ background: 'rgba(9, 9, 11, 0.8)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-cyan/20 to-accent-purple/20 border border-accent-cyan/20 flex items-center justify-center">
-              <Icon name="crosshair" size={16} className="text-accent-cyan" />
-            </div>
+            <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
             <span className="font-bold text-sm tracking-tight text-text-primary">
               Hawk<span className="text-gradient-cyan">Scope</span>
             </span>
@@ -274,7 +273,7 @@ const LandingPage = () => {
             {plans.map((plan, i) => (
               <motion.div
                 key={plan.name}
-                className={`glass-card p-6 relative ${plan.highlight ? 'border-accent-cyan/20 glow-cyan' : ''}`}
+                className={`glass-card p-6 relative !overflow-visible ${plan.highlight ? 'border-accent-cyan/20 glow-cyan' : ''}`}
                 {...stagger}
                 transition={{ delay: i * 0.1, duration: 0.5 }}
               >
@@ -356,9 +355,7 @@ const LandingPage = () => {
       <footer className="py-10 px-6 border-t border-white/[0.04]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-accent-cyan/20 to-accent-purple/20 border border-accent-cyan/20 flex items-center justify-center">
-              <Icon name="crosshair" size={12} className="text-accent-cyan" />
-            </div>
+            <img src={logo} alt="Logo" className="w-6 h-6 object-contain" />
             <span className="text-xs font-bold text-text-primary">
               Hawk<span className="text-gradient-cyan">Scope</span>
             </span>

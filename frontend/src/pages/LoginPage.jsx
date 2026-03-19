@@ -5,6 +5,7 @@ import useAuthStore from '../store/authStore'
 import authService from '../services/authService'
 import { useToast } from '../hooks/useToast'
 import Icon from '../components/icons/Icon'
+import logo from '../assets/logo.svg'
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({ email: '', password: '' })
@@ -155,13 +156,7 @@ const LoginPage = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2, duration: 0.5 }}
                 >
-                  <motion.div
-                    className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent-cyan/15 to-accent-purple/15 border border-accent-cyan/20 flex items-center justify-center"
-                    animate={{ boxShadow: ['0 0 20px rgba(0,240,255,0.1)', '0 0 40px rgba(0,240,255,0.2)', '0 0 20px rgba(0,240,255,0.1)'] }}
-                    transition={{ repeat: Infinity, duration: 3 }}
-                  >
-                    <Icon name="crosshair" size={24} className="text-accent-cyan" />
-                  </motion.div>
+                  <img src={logo} alt="Logo" className="w-12 h-12 object-contain" />
                 </motion.div>
                 <motion.h1
                   className="text-3xl font-bold tracking-tight mb-1"
