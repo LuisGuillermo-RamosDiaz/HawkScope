@@ -7,6 +7,7 @@ import useNotificationStore from '../store/notificationStore'
 import Toast from './Toast'
 import { useToast } from '../hooks/useToast'
 import Icon from './icons/Icon'
+import logo from '../assets/logo.svg'
 
 const notifColors = {
   critical: { dot: 'bg-status-critical', text: 'text-status-critical' },
@@ -141,9 +142,7 @@ const Layout = ({ children }) => {
                 exit={{ opacity: 0, x: -16 }}
                 transition={{ duration: 0.2 }}
               >
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-cyan/20 to-accent-purple/20 border border-accent-cyan/20 flex items-center justify-center">
-                  <Icon name="crosshair" size={16} className="text-accent-cyan" />
-                </div>
+                <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
                 <div className="flex flex-col">
                   <span className="font-bold text-sm tracking-tight text-text-primary whitespace-nowrap leading-none">
                     Hawk<span className="text-gradient-cyan">Scope</span>
@@ -426,7 +425,7 @@ const Layout = ({ children }) => {
                         </div>
                       </div>
 
-                      <NotificationList />
+                      {NotificationList({})}
 
                       {/* Footer */}
                       <div className="px-4 py-2.5 border-t border-white/[0.06]">
@@ -545,7 +544,7 @@ const Layout = ({ children }) => {
                   </div>
                 </div>
 
-                <NotificationList maxHeight="max-h-[60vh]" />
+                {NotificationList({ maxHeight: "max-h-[60vh]" })}
 
                 <div className="px-5 py-3 border-t border-white/[0.06]">
                   <button

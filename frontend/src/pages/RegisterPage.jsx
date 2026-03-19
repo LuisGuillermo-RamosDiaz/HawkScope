@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import useAuthStore from '../store/authStore'
 import Icon from '../components/icons/Icon'
+import logo from '../assets/logo.svg'
 
 const industries = [
   'Tecnologia', 'Finanzas', 'Salud', 'Retail', 'Educacion', 'Gobierno', 'Manufactura', 'Otro'
@@ -92,9 +93,7 @@ const RegisterPage = () => {
           {/* Header */}
           <div className="text-center mb-6">
             <Link to="/" className="inline-flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-cyan/15 to-accent-purple/15 border border-accent-cyan/20 flex items-center justify-center">
-                <Icon name="crosshair" size={20} className="text-accent-cyan" />
-              </div>
+              <img src={logo} alt="Logo" className="w-10 h-10 object-contain" />
             </Link>
             <h1 className="text-2xl font-bold text-text-primary mb-1">{t('register.title')}</h1>
             <p className="text-xs text-text-secondary">{t('register.subtitle')}</p>
