@@ -54,7 +54,7 @@ CREATE TABLE users (
 
   -- Audit fields
   last_login_at TIMESTAMP NULL,
-  last_login_ip INET NULL,
+  last_login_ip VARCHAR(45) NULL,
   login_failure_count INT DEFAULT 0 COMMENT 'For brute force detection',
   login_failure_last_at TIMESTAMP NULL,
 
@@ -96,7 +96,6 @@ CREATE TABLE sessions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
   CONSTRAINT fk_session_user FOREIGN KEY (user_id) REFERENCES users(id),
-  UNIQUE KEY unique_token (token),
   INDEX idx_user_id (user_id),
   INDEX idx_expires_at (expires_at)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Active sessions and tokens';
@@ -227,6 +226,7 @@ CREATE TABLE alerts (
   id CHAR(36) PRIMARY KEY,
   organization_id CHAR(36) NOT NULL,
   server_id CHAR(36) NULL COMMENT 'NULL if organization-wide alert',
+  deleted_at TIMESTAMP NULL,
 
   -- Alert details
   type ENUM('critical', 'warning', 'info') NOT NULL,
@@ -469,7 +469,7 @@ CREATE TABLE notifications (
   related_threat_id CHAR(36) NULL COMMENT 'Link to threat if applicable',
 
   -- Status
-  read BOOLEAN DEFAULT FALSE,
+  is_read BOOLEAN DEFAULT FALSE,
   read_at TIMESTAMP NULL,
 
   -- Action
@@ -488,7 +488,7 @@ CREATE TABLE notifications (
   CONSTRAINT fk_notif_alert FOREIGN KEY (related_alert_id) REFERENCES alerts(id),
   CONSTRAINT fk_notif_threat FOREIGN KEY (related_threat_id) REFERENCES security_threats(id),
   INDEX idx_user_id (user_id),
-  INDEX idx_read_created (read, created_at),
+  INDEX idx_read_created (is_read, created_at),
   INDEX idx_created_at (created_at)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'User notifications';
 
@@ -645,39 +645,18 @@ GROUP BY o.id;
 
 -- Active Threats View
 CREATE VIEW active_threats_summary AS
-SELECT
-  organization_id,
-  severity,
-  COUNT(*) as threat_count
+SELECT organization_id, severity, COUNT(*) as threat_count
 FROM security_threats
 WHERE status IN ('blocked', 'mitigated', 'monitoring')
-  AND deleted_at IS NULL
 GROUP BY organization_id, severity;
 
 -- Recent Audit Events View
 CREATE VIEW recent_audit_events AS
-SELECT
-  organization_id,
-  user_id,
-  action,
-  resource_type,
-  status,
-  timestamp
+SELECT organization_id, user_id, action, resource_type, status, timestamp
 FROM audit_logs
 WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-  AND deleted_at IS NULL
 ORDER BY timestamp DESC;
 
--- ==================================================================================
--- INDEXES FOR PERFORMANCE
--- ==================================================================================
-
--- Composite indexes for common query patterns
-CREATE INDEX idx_metrics_server_time ON metrics(server_id, timestamp DESC);
-CREATE INDEX idx_alerts_org_status_time ON alerts(organization_id, status, created_at DESC);
-CREATE INDEX idx_threats_org_sev_time ON security_threats(organization_id, severity, detected_at DESC);
-CREATE INDEX idx_audit_org_user_time ON audit_logs(organization_id, user_id, timestamp DESC);
-CREATE INDEX idx_servers_org_status ON servers(organization_id, status);
 
 -- ==================================================================================
 -- STORED PROCEDURES
@@ -728,7 +707,7 @@ BEGIN
   -- Delete old notifications (keep 7 days)
   DELETE FROM notifications
   WHERE created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
-  AND read = TRUE;
+  AND is_read = TRUE;
 END //
 
 DELIMITER ;
@@ -744,9 +723,22 @@ VALUES ('550e8400-e29b-41d4-a716-446655440000', 'HawkScope Demo', 'Technology', 
 -- Insert sample users
 INSERT INTO users (id, organization_id, email, password_hash, full_name, role, status, created_at)
 VALUES
-  ('660e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', 'admin@hawkscope.io', '$2b$12$...hashed_password...', 'Admin User', 'admin', 'active', NOW()),
-  ('660e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440000', 'operator@hawkscope.io', '$2b$12$...hashed_password...', 'Operator User', 'operator', 'active', NOW()),
-  ('660e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000', 'viewer@hawkscope.io', '$2b$12$...hashed_password...', 'Viewer User', 'viewer', 'active', NOW());
+  ('660e8400-e29b-41d4-a716-446655440001',
+ '550e8400-e29b-41d4-a716-446655440000',
+ 'admin@hawkscope.io',
+ '$2b$12$LJ3m5Rs1GK0sR1KhMer0F.YnxHzA3vH3hR3x3qA8X1v5R8nB3gD5w',
+ 'Admin User', 'admin', 'active', NOW()),
+
+ ('660e8400-e29b-41d4-a716-446655440002',
+ '550e8400-e29b-41d4-a716-446655440000',
+ 'operator@hawkscope.io',
+ '$2b$12$PQ7k5Ws3HN2tT3YjQer1G.k4xI4iS4z4rB9Y2w6S9oC4hE6xT8z3M',
+ 'Operator User', 'operator', 'active', NOW()),
+
+ ('660e8400-e29b-41d4-a716-446655440003',
+ '550e8400-e29b-41d4-a716-446655440000',
+ 'viewer@hawkscope.io','$2b$12$MN4h2Vp0EL9qQ0VgNdr8D.g1uF1fP1w1oY6V9t3P6lZ1eB3uQ5w0J',
+ 'Viewer User', 'viewer', 'active', NOW());
 
 -- Insert sample servers
 INSERT INTO servers (id, organization_id, hostname, ip_address, ip_internal, os_name, os_version, region, status, agent_version)
@@ -781,3 +773,5 @@ VALUES
 -- 10. Regular backups are essential - test recovery procedures
 --
 -- ==================================================================================
+
+
