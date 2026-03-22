@@ -1,7 +1,27 @@
-certifi==2026.1.4
-charset-normalizer==3.4.4
-idna==3.11
-psutil==7.2.2
-python-dotenv==1.2.1
-requests==2.32.5
-urllib3==2.6.3
+# HawkScope SOC Platform — Agente de Monitoreo
+# requirements.txt
+#
+# Versiones fijadas (pinned) para garantizar reproducibilidad en producción.
+# Para actualizar: pip-compile requirements.in
+# Para instalar:   pip install -r requirements.txt --require-hashes  (recomendado en prod)
+#
+# Python mínimo requerido: 3.9+
+
+# ---------------------------------------------------------------------------
+# Core — recolección de métricas del sistema
+# ---------------------------------------------------------------------------
+psutil==7.0.0
+
+# ---------------------------------------------------------------------------
+# HTTP — envío de telemetría al backend
+# ---------------------------------------------------------------------------
+requests==2.32.3
+urllib3==2.3.0
+certifi==2025.1.31
+charset-normalizer==3.4.1
+idna==3.10
+
+# ---------------------------------------------------------------------------
+# Configuración — lectura del archivo .env
+# ---------------------------------------------------------------------------
+python-dotenv==1.0.1
