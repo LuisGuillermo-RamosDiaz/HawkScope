@@ -657,24 +657,7 @@ FROM audit_logs
 WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
 ORDER BY timestamp DESC;
 
--- ==================================================================================
--- Safe index recreation to avoid duplicate index errors
--- ==================================================================================
 
-DROP INDEX IF EXISTS idx_metrics_server_time ON metrics;
-CREATE INDEX idx_metrics_server_time ON metrics(server_id, timestamp DESC);
-
-DROP INDEX IF EXISTS idx_alerts_org_status_time ON alerts;
-CREATE INDEX idx_alerts_org_status_time ON alerts(organization_id, status, created_at DESC);
-
-DROP INDEX IF EXISTS idx_threats_org_sev_time ON security_threats;
-CREATE INDEX idx_threats_org_sev_time ON security_threats(organization_id, severity, detected_at DESC);
-
-DROP INDEX IF EXISTS idx_audit_org_user_time ON audit_logs;
-CREATE INDEX idx_audit_org_user_time ON audit_logs(organization_id, user_id, timestamp DESC);
-
-DROP INDEX IF EXISTS idx_servers_org_status ON servers;
-CREATE INDEX idx_servers_org_status ON servers(organization_id, status);
 -- ==================================================================================
 -- STORED PROCEDURES
 -- ==================================================================================

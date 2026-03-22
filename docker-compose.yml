@@ -1,31 +1,33 @@
 version: '3.8'
-services:
- db:
- image: mysql:8.0
- container_name: hawkscope_db
- restart: always
- environment:
- MYSQL_ROOT_PASSWORD: "9f8c7b6A5!2d#4"
- MYSQL_DATABASE: hawkscope_db
- MYSQL_USER: db_admin
- MYSQL_PASSWORD: "3kL9@pT2z!wQx"
- ports:
- - "3308:3306"
- volumes:
- - ./db-data:/var/lib/mysql
- - ./DATABASE_SCHEMA_COMPLETE.sql:/docker-entrypoint-initdb.d/01_schema.sql
- command: --default-authentication-plugin=mysql_native_password
- --character-set-server=utf8mb4
- --collation-server=utf8mb4_unicode_ci
 
- phpmyadmin:
- image: phpmyadmin/phpmyadmin
- container_name: hawkscope_phpmyadmin
- restart: always
- environment:
- PMA_HOST: db
- MYSQL_ROOT_PASSWORD: "9f8c7b6A5!2d#4"
- ports:
- - "8081:80"
- depends_on:
- 
+services:
+  db:
+    image: mysql:8.0
+    container_name: hawkscope_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "9f8c7b6A5!2d#4"
+      MYSQL_DATABASE: hawkscope_db
+      MYSQL_USER: db_admin
+      MYSQL_PASSWORD: "3kL9@pT2z!wQx"
+    ports:
+      - "3308:3306"
+    volumes:
+      - ./db-data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    command: 
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: hawkscope_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: "9f8c7b6A5!2d#4"
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
