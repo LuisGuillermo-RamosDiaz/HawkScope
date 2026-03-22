@@ -1,11 +1,13 @@
 package com.hawkscope.backend.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record AgentPayloadDto(
     String version,
     String host,
     String ip,
-    LocalDateTime timestamp,
-    AgentResourcesDto resources
+    Instant timestamp,
+    AgentSystemDto system,
+    AgentResourcesDto resources,
+    AgentSecurityDto security
 ) {}

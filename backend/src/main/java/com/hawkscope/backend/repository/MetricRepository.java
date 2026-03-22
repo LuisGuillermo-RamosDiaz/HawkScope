@@ -9,5 +9,5 @@ import java.util.UUID;
 
 @Repository
 public interface MetricRepository extends JpaRepository<Metric, Long> {
-    List<Metric> findTop100ByServerIdOrderByTimestampDesc(UUID serverId);
+    List<Metric> findTop100ByServer_IdOrderByTimestampDesc(UUID serverId);
 }

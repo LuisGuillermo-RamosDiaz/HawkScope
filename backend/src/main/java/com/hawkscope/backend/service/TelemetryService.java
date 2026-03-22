@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -39,7 +40,6 @@ public class TelemetryService {
             throw new IllegalArgumentException("Payload or hostname cannot be null");
         }
 
-        // Buscar el servidor en la BD o crear uno nuevo auto-registrado
         Server server = serverRepository.findByOrganizationIdAndHostname(org.getId(), payload.host())
                 .orElseGet(() -> {
                     Server newServer = new Server();
@@ -48,42 +48,64 @@ public class TelemetryService {
                     return newServer;
                 });
 
-        // Actualizar datos de latido y estado cada minuto que el agente habla
         server.setIpAddress(payload.ip());
         server.setAgentVersion(payload.version());
-        // Si no está crítico, lo ponemos healthy. Si estaba crítico se queda así hasta resolver.
-        if (!"critical".equals(server.getStatus())) {
-            server.setStatus("healthy");
-        }
         server.setLastHeartbeat(LocalDateTime.now());
+
+        // Actualizar métricas actuales del servidor
+        if (payload.resources() != null) {
+            if (payload.resources().cpuUsage() != null)
+                server.setCpuUsage(payload.resources().cpuUsage());
+            if (payload.resources().ramUsage() != null)
+                server.setRamUsage(payload.resources().ramUsage());
+            if (payload.resources().diskUsage() != null)
+                server.setDiskUsage(payload.resources().diskUsage());
+        }
+
+        // Actualizar info del sistema
+        if (payload.system() != null) {
+            server.setOsName(payload.system().osName());
+            server.setOsVersion(payload.system().osVersion());
+            server.setOsArch(payload.system().osArch());
+            if (payload.system().uptimeSeconds() != null)
+                server.setUptimeSeconds(payload.system().uptimeSeconds());
+        }
+
+        // Actualizar IP interna si viene en el payload
+        if (payload.ip() != null) {
+            server.setIpInternal(payload.ip());
+        }
+
+        // Determinar estado del servidor basado en métricas
+        String newStatus = "healthy";
+        if (server.getCpuUsage() >= 90 || server.getRamUsage() >= 90) {
+            newStatus = "critical";
+        } else if (server.getCpuUsage() >= 75 || server.getRamUsage() >= 75) {
+            newStatus = "warning";
+        }
+        server.setStatus(newStatus);
         
         server = serverRepository.save(server);
 
-        // Extraer métricas de recursos y registrarlas firmemente
-        if (payload.resources() != null && payload.resources().cpu() != null && payload.resources().ram() != null) {
+        if (payload.resources() != null && payload.resources().cpuUsage() != null && payload.resources().ramUsage() != null) {
             Metric metric = new Metric();
             metric.setServer(server);
-            metric.setCpuUsage(payload.resources().cpu());
-            metric.setRamUsage(payload.resources().ram());
-            metric.setDiskUsage(payload.resources().disk() != null ? payload.resources().disk() : 0.0);
+            metric.setCpuUsage(payload.resources().cpuUsage());
+            metric.setRamUsage(payload.resources().ramUsage());
+            metric.setDiskUsage(payload.resources().diskUsage() != null ? payload.resources().diskUsage() : 0.0);
             
-            // Si el agente Python manda su propio reloj, lo respetamos, sino usamos hora del servidor
-            metric.setTimestamp(payload.timestamp() != null ? payload.timestamp() : LocalDateTime.now());
+            metric.setTimestamp(payload.timestamp() != null ? LocalDateTime.ofInstant(payload.timestamp(), ZoneId.systemDefault()) : LocalDateTime.now());
             
             metricRepository.save(metric);
 
-            // 1. Analizador SOC (Alerta si CPU > 90% sostenido)
             checkForCpuAnomaly(org, server);
 
-            // 2. Emisión en Tiempo Real vía WebSocket
-            // El frontend suscrito a /topic/metrics recibirá este objeto literalmente al instante
             messagingTemplate.convertAndSend("/topic/metrics", payload);
         }
     }
 
     private void checkForCpuAnomaly(Organization org, Server server) {
-        // Evaluador heurístico ultra-rápido: Si las últimas 3 métricas seguidas exceden 90% CPU.
-        List<Metric> recentMetrics = metricRepository.findTop100ByServerIdOrderByTimestampDesc(server.getId());
+        List<Metric> recentMetrics = metricRepository.findTop100ByServer_IdOrderByTimestampDesc(server.getId());
         
         if (recentMetrics.size() >= 3) {
             boolean isCritical = true;
@@ -95,7 +117,6 @@ public class TelemetryService {
             }
 
             if (isCritical) {
-                // Verificar que no hayamos creado ya una alerta activa por esto
                 List<Alert> activeAlerts = alertRepository.findByOrganizationIdAndStatus(org.getId(), "active");
                 boolean alreadyAlerted = activeAlerts.stream()
                         .anyMatch(a -> a.getServer() != null && a.getServer().getId().equals(server.getId()) 
@@ -114,7 +135,6 @@ public class TelemetryService {
                     server.setStatus("critical");
                     serverRepository.save(server);
 
-                    // Notificar al Dashboard en vivo sobre nueva alerta
                     messagingTemplate.convertAndSend("/topic/alerts", alert);
                 }
             }

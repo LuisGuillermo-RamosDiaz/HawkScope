@@ -25,6 +25,15 @@ public class Server {
     @Column(name = "os_name")
     private String osName;
 
+    @Column(name = "os_version")
+    private String osVersion;
+
+    @Column(name = "os_arch")
+    private String osArch;
+
+    @Column(name = "ip_internal")
+    private String ipInternal;
+
     @Column(nullable = false)
     private String status = "offline";
 
@@ -33,6 +42,18 @@ public class Server {
 
     @Column(name = "last_heartbeat")
     private LocalDateTime lastHeartbeat;
+
+    @Column(name = "cpu_usage")
+    private Double cpuUsage = 0.0;
+
+    @Column(name = "ram_usage")
+    private Double ramUsage = 0.0;
+
+    @Column(name = "disk_usage")
+    private Double diskUsage = 0.0;
+
+    @Column(name = "uptime_seconds")
+    private Long uptimeSeconds = 0L;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -53,12 +74,26 @@ public class Server {
     public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
     public String getOsName() { return osName; }
     public void setOsName(String osName) { this.osName = osName; }
+    public String getOsVersion() { return osVersion; }
+    public void setOsVersion(String osVersion) { this.osVersion = osVersion; }
+    public String getOsArch() { return osArch; }
+    public void setOsArch(String osArch) { this.osArch = osArch; }
+    public String getIpInternal() { return ipInternal; }
+    public void setIpInternal(String ipInternal) { this.ipInternal = ipInternal; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getAgentVersion() { return agentVersion; }
     public void setAgentVersion(String agentVersion) { this.agentVersion = agentVersion; }
     public LocalDateTime getLastHeartbeat() { return lastHeartbeat; }
     public void setLastHeartbeat(LocalDateTime lastHeartbeat) { this.lastHeartbeat = lastHeartbeat; }
+    public Double getCpuUsage() { return cpuUsage; }
+    public void setCpuUsage(Double cpuUsage) { this.cpuUsage = cpuUsage; }
+    public Double getRamUsage() { return ramUsage; }
+    public void setRamUsage(Double ramUsage) { this.ramUsage = ramUsage; }
+    public Double getDiskUsage() { return diskUsage; }
+    public void setDiskUsage(Double diskUsage) { this.diskUsage = diskUsage; }
+    public Long getUptimeSeconds() { return uptimeSeconds; }
+    public void setUptimeSeconds(Long uptimeSeconds) { this.uptimeSeconds = uptimeSeconds; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
