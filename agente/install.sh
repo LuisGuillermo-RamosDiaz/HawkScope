@@ -52,7 +52,7 @@ UPDATE_MODE=false
 # (one-liner: curl .../install.sh | sudo bash).
 # En modo local (bash install.sh desde una carpeta con los archivos),
 # se usa la copia local y esta URL se ignora.
-AGENT_FILES_URL="https://releases.hawkscope.io/agent/v2.1.0"
+AGENT_FILES_URL="https://raw.githubusercontent.com/LuisGuillermo-RamosDiaz/HawkScope/main/agente"
 
 # Variable de entorno opcional para sobreescribir la URL en entornos de prueba:
 #   HAWKSCOPE_RELEASE_URL=https://mi-servidor/agent sudo bash install.sh
