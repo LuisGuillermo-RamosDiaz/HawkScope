@@ -41,7 +41,7 @@ const LandingPage = () => {
     {
       name: 'Starter',
       price: billingCycle === 'monthly' ? '0' : '0',
-      period: billingCycle === 'monthly' ? '/mes' : '/ano',
+      period: billingCycle === 'monthly' ? '/mes' : '/año',
       desc: 'Para equipos pequenos que inician',
       features: ['5 servidores', '1 usuario', 'Dashboard basico', 'Alertas email', 'Retencion 7 dias'],
       cta: 'Comenzar Gratis',
@@ -50,7 +50,7 @@ const LandingPage = () => {
     {
       name: 'Pro',
       price: billingCycle === 'monthly' ? '49' : '470',
-      period: billingCycle === 'monthly' ? '/mes' : '/ano',
+      period: billingCycle === 'monthly' ? '/mes' : '/año',
       desc: 'Para equipos en crecimiento',
       features: ['50 servidores', '10 usuarios', 'Dashboard completo', 'Alertas multi-canal', 'Retencion 90 dias', 'API access', 'Roles RBAC'],
       cta: 'Iniciar Prueba Gratis',
@@ -67,11 +67,7 @@ const LandingPage = () => {
     },
   ]
 
-  const testimonials = [
-    { name: 'Carlos M.', role: 'CISO, FinTech Corp', text: 'HawkScope redujo nuestro tiempo de respuesta de 45 minutos a menos de 30 segundos. La visibilidad que nos da es increible.', avatar: 'C' },
-    { name: 'Ana R.', role: 'DevOps Lead, SaaS Inc', text: 'La integracion fue inmediata. En 5 minutos ya teniamos monitoreo completo de nuestro cluster de Kubernetes.', avatar: 'A' },
-    { name: 'Miguel S.', role: 'CTO, HealthTech', text: 'El cumplimiento SOC 2 que nos exigian nuestros clientes enterprise ahora lo generamos con un clic.', avatar: 'M' },
-  ]
+
 
   const stats = [
     { value: '99.99%', label: 'Uptime Garantizado' },
@@ -85,8 +81,11 @@ const LandingPage = () => {
       {/* ========== NAVBAR ========== */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4" style={{ background: 'rgba(9, 9, 11, 0.8)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
+          <div
+            className="flex items-center gap-2.5 cursor-pointer select-none"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            <img src={logo} alt="Logo" className="w-8 h-8 object-contain pointer-events-none" />
             <span className="font-bold text-sm tracking-tight text-text-primary">
               Hawk<span className="text-gradient-cyan">Scope</span>
             </span>
@@ -259,9 +258,8 @@ const LandingPage = () => {
                 <button
                   key={cycle}
                   onClick={() => setBillingCycle(cycle)}
-                  className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    billingCycle === cycle ? 'bg-accent-cyan/10 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
-                  }`}
+                  className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${billingCycle === cycle ? 'bg-accent-cyan/10 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
+                    }`}
                 >
                   {cycle === 'monthly' ? 'Mensual' : 'Anual (-20%)'}
                 </button>
@@ -299,9 +297,8 @@ const LandingPage = () => {
                 </ul>
                 <Link
                   to="/register"
-                  className={`block text-center text-xs py-2.5 rounded-lg font-medium transition-all ${
-                    plan.highlight ? 'btn-primary' : 'btn-secondary'
-                  }`}
+                  className={`block text-center text-xs py-2.5 rounded-lg font-medium transition-all ${plan.highlight ? 'btn-primary' : 'btn-secondary'
+                    }`}
                 >
                   {plan.cta}
                 </Link>
@@ -311,31 +308,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ========== TESTIMONIALS ========== */}
-      <section className="py-20 px-6 border-t border-white/[0.04]">
-        <div className="max-w-5xl mx-auto">
-          <motion.div className="text-center mb-14" {...fadeUp}>
-            <h2 className="text-3xl font-bold text-text-primary mb-3">Lo que Dicen Nuestros Usuarios</h2>
-          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {testimonials.map((t, i) => (
-              <motion.div key={t.name} className="glass-card p-6" {...stagger} transition={{ delay: i * 0.1, duration: 0.5 }}>
-                <p className="text-xs text-text-secondary leading-relaxed mb-5 italic">&quot;{t.text}&quot;</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-cyan/15 to-accent-purple/15 border border-accent-cyan/15 flex items-center justify-center text-accent-cyan text-xs font-bold">
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-text-primary">{t.name}</p>
-                    <p className="text-[10px] text-text-muted">{t.role}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ========== CTA ========== */}
       <section className="py-20 px-6 border-t border-white/[0.04]">
@@ -354,8 +327,11 @@ const LandingPage = () => {
       {/* ========== FOOTER ========== */}
       <footer className="py-10 px-6 border-t border-white/[0.04]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="Logo" className="w-6 h-6 object-contain" />
+          <div
+            className="flex items-center gap-2 cursor-pointer select-none"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            <img src={logo} alt="Logo" className="w-6 h-6 object-contain pointer-events-none" />
             <span className="text-xs font-bold text-text-primary">
               Hawk<span className="text-gradient-cyan">Scope</span>
             </span>
