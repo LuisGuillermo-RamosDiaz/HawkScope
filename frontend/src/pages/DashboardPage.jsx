@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import KpiCard from '../components/KpiCard'
 import MetricsChart from '../components/MetricsChart'
 import GlassCard from '../components/GlassCard'
@@ -11,13 +12,9 @@ import { StaggerContainer, StaggerItem } from '../components/animations/StaggerC
 import { KpiCardSkeleton, ChartSkeleton } from '../components/Skeleton'
 
 const DashboardPage = () => {
-  const [metrics, setMetrics] = useState([])
-  const [kpis, setKpis] = useState(null)
-  const [serverStatus, setServerStatus] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [timeRange, setTimeRange] = useState('1h')
-  const { showError, showSuccess } = useToast()
+  const { showError } = useToast()
+  const queryClient = useQueryClient()
 
   const generateMockMetrics = () => {
     const data = []
@@ -46,38 +43,58 @@ const DashboardPage = () => {
     total: 24,
   })
 
-  const fetchData = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
-    else setIsRefreshing(true)
+  // Métricas más recientes con polling cada 10s
+  const { data: metricsRaw, isLoading: metricsLoading, isFetching: metricsFetching } = useQuery({
+    queryKey: ['metrics-latest'],
+    queryFn: () => metricsService.getLatest().then(r => r.data || []),
+    refetchInterval: 10000,
+    retry: 2,
+    staleTime: 5000,
+    placeholderData: generateMockMetrics,
+    onError: () => showError('Error al cargar métricas'),
+  })
 
-    try {
-      const [metricsData, kpisData, serverData] = await Promise.allSettled([
-        metricsService.getLatest(),
-        metricsService.getKpis(),
-        metricsService.getServerStatus(),
-      ])
+  // KPIs con polling cada 10s
+  const { data: kpisRaw, isLoading: kpisLoading } = useQuery({
+    queryKey: ['kpis'],
+    queryFn: () => metricsService.getKpis().then(r => r.data),
+    refetchInterval: 10000,
+    retry: 2,
+    staleTime: 5000,
+    placeholderData: generateMockKpis,
+    onError: () => showError('Error al cargar KPIs'),
+  })
 
-      setMetrics(metricsData.status === 'fulfilled' ? metricsData.value.data || [] : generateMockMetrics())
-      setKpis(kpisData.status === 'fulfilled' ? kpisData.value : generateMockKpis())
-      setServerStatus(serverData.status === 'fulfilled' ? serverData.value : generateMockServerStatus())
+  // Servidores con polling cada 10s
+  const { data: serversRaw, isLoading: serversLoading } = useQuery({
+    queryKey: ['servers'],
+    queryFn: () => metricsService.getServers().then(r => r.data?.data || r.data),
+    refetchInterval: 10000,
+    retry: 2,
+    placeholderData: generateMockServerStatus,
+    onError: () => showError('Error al cargar servidores'),
+  })
 
-      if (!silent) showSuccess('Dashboard actualizado')
-    } catch (_error) {
-      showError('Error al cargar datos del dashboard')
-      setMetrics(generateMockMetrics())
-      setKpis(generateMockKpis())
-      setServerStatus(generateMockServerStatus())
-    } finally {
-      setLoading(false)
-      setIsRefreshing(false)
-    }
-  }, [showError, showSuccess])
+  // Métricas históricas
+  const { data: historicalRaw } = useQuery({
+    queryKey: ['historical', timeRange],
+    queryFn: () => metricsService.getHistorical(timeRange).then(r => r.data?.data || []),
+    refetchInterval: 30000,
+    retry: 2,
+  })
 
-  useEffect(() => {
-    fetchData(false)
-    const interval = setInterval(() => fetchData(true), 10000)
-    return () => clearInterval(interval)
-  }, [fetchData])
+  const metrics = metricsRaw || generateMockMetrics()
+  const kpis = kpisRaw || generateMockKpis()
+  const serverStatus = serversRaw || generateMockServerStatus()
+  const loading = metricsLoading && kpisLoading && serversLoading
+  const isRefreshing = metricsFetching && !metricsLoading
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['metrics-latest'] })
+    queryClient.invalidateQueries({ queryKey: ['kpis'] })
+    queryClient.invalidateQueries({ queryKey: ['servers'] })
+    queryClient.invalidateQueries({ queryKey: ['historical'] })
+  }
 
   const recentEvents = [
     { id: 1, type: 'success', message: 'Deploy exitoso en prod-01', time: '2m', icon: 'check-circle' },
@@ -149,7 +166,7 @@ const DashboardPage = () => {
               ))}
             </div>
             <motion.button
-              onClick={() => fetchData(false)}
+              onClick={handleRefresh}
               className="btn-secondary flex items-center gap-2 text-xs px-3 py-1.5"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

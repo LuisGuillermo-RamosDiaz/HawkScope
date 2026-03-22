@@ -3,16 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/icons/Icon'
+import useAuthStore from '../store/authStore'
 
 const AgentSetupPage = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const [step, setStep] = useState(1)
   const [copied, setCopied] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [connected, setConnected] = useState(false)
 
-  const installCommand = 'curl -sSL https://get.hawkscope.io/agent | sudo bash -s -- --token=hs_tok_a1b2c3d4e5f6'
+  const backendUrl = import.meta.env.VITE_API_URL || 'https://hawkscope-backend.onrender.com/api'
+  const installCommand = `curl -fsSL https://raw.githubusercontent.com/LuisGuillermo-RamosDiaz/proyecto-dashboard/main/agent/install.sh | sudo bash -s -- --api-url=${backendUrl}/v1/agent/metrics --token=${user?.token || '<TU_TOKEN>'}`
 
   const handleCopy = () => {
     navigator.clipboard.writeText(installCommand)

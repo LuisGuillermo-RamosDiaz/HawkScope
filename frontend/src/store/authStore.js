@@ -32,24 +32,16 @@ const useAuthStore = create(
       // Verificar si el token está expirado (simple validación)
       isTokenExpired: () => {
         const { user } = get()
-        if (!user || !user.token) return true
+        if (!user?.token) return true
         
         try {
-          // Verificar si el token tiene el formato correcto (3 partes separadas por .)
-          const tokenParts = user.token.split('.')
-          if (tokenParts.length !== 3) {
-            console.warn('Token format invalid:', user.token)
-            return true
-          }
-          
-          // Decodificar token JWT (simple)
-          const payload = JSON.parse(atob(tokenParts[1]))
-          const currentTime = Date.now() / 1000
-          return payload.exp < currentTime
-        } catch (error) {
-          console.error('Error al decodificar token:', error)
-          console.error('Token que causó error:', user.token)
-          return true
+          const parts = user.token.split('.')
+          if (parts.length !== 3) return true
+          const payload = JSON.parse(atob(parts[1]))
+          if (!payload.exp) return false // Token sin expiración — aceptar
+          return payload.exp < Date.now() / 1000
+        } catch {
+          return true // Token malformado — tratar como expirado
         }
       },
       

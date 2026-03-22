@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import useAuthStore from '../store/authStore'
+import authService from '../services/authService'
 import Icon from '../components/icons/Icon'
 import logo from '../assets/logo.svg'
 
@@ -47,22 +48,24 @@ const RegisterPage = () => {
     }
 
     setIsLoading(true)
-    // Mock registration
-    setTimeout(() => {
-      const payload = {
+    try {
+      await authService.register({
         email: form.email,
-        role: 'admin',
-        exp: Math.floor(Date.now() / 1000) + 3600,
-      }
-      const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-      const payloadStr = btoa(JSON.stringify(payload))
-      login({
-        email: form.email,
-        role: 'admin',
-        token: `${header}.${payloadStr}.mock-signature`,
+        password: form.password,
+        companyName: form.companyName,
+        industry: form.industry,
+        companySize: form.companySize,
       })
-      navigate('/setup')
-    }, 1500)
+      navigate('/login')
+    } catch (error) {
+      if (error.response?.status === 404) {
+        setError('El registro automático estará disponible próximamente. Contacta al administrador para crear tu cuenta.')
+      } else {
+        setError(error.response?.data?.message || 'Error al registrar. Intenta de nuevo.')
+      }
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
