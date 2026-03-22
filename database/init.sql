@@ -1,701 +1,794 @@
 -- ==================================================================================
--- HawkScope SOC Platform - VERSION BETA
--- Base de Datos: MySQL 8.0+
--- Propósito: Plataforma de monitoreo de infraestructura y detección de incidentes
--- ==================================================================================
--- Proyecto Integrador + Base de Datos
--- Requisitos cubiertos:
---   ✅ 7 tablas relacionadas (mínimo 5)
---   ✅ Normalización estricta (1FN, 2FN, 3FN)
---   ✅ PK y FK con ON DELETE CASCADE / ON UPDATE CASCADE
---   ✅ 3 Funciones
---   ✅ 2 Procedimientos Almacenados
---   ✅ 2 Triggers
---   ✅ 1 Transacción
---   ✅ 4 Roles de seguridad (DBA, Operador, Auditor, Agente)
+-- HawkScope SOC Platform v2.0 - Complete Database Schema
+-- Database: MySQL 8.0+
+-- Purpose: Multi-tenant monitoring and security incident detection platform
 -- ==================================================================================
 
-DROP DATABASE IF EXISTS hawkscope_db;
-CREATE DATABASE hawkscope_db;
+-- Create database
+CREATE DATABASE IF NOT EXISTS hawkscope_db;
 USE hawkscope_db;
 
 -- ==================================================================================
--- PARTE 1: DDL - ESTRUCTURA DE TABLAS
+-- 1. ORGANIZATIONS TABLE
+-- Multi-tenant support - Each organization is completely isolated
 -- ==================================================================================
 
--- ═══════════════════════════════════════════════════════════════════
--- TABLA 1: ORGANIZACIONES (Tabla padre principal)
--- Cada organización es un "inquilino" aislado del sistema
--- ═══════════════════════════════════════════════════════════════════
 CREATE TABLE organizations (
-  id CHAR(36) PRIMARY KEY COMMENT 'UUID',
-  name VARCHAR(255) NOT NULL COMMENT 'Nombre de la organización',
-  industry VARCHAR(100) COMMENT 'Sector: IT, Salud, Finanzas, etc',
-  api_key VARCHAR(255) UNIQUE COMMENT 'Clave maestra para agentes',
-  status ENUM('active', 'suspended') DEFAULT 'active',
+  id CHAR(36) PRIMARY KEY COMMENT 'UUID primary key',
+  name VARCHAR(255) NOT NULL COMMENT 'Organization name',
+  industry VARCHAR(100) COMMENT 'Industry sector (IT, Healthcare, Finance, etc)',
+  company_size VARCHAR(20) COMMENT 'Size: small, medium, large, enterprise',
+  subscription_tier VARCHAR(50) DEFAULT 'pro' COMMENT 'free, pro, enterprise',
+  api_key VARCHAR(255) UNIQUE COMMENT 'Master API key for organization agents',
+  max_servers INT DEFAULT 50 COMMENT 'Maximum servers allowed in subscription',
+  max_users INT DEFAULT 10 COMMENT 'Maximum users allowed in subscription',
+  status ENUM('active', 'suspended', 'trial', 'expired') DEFAULT 'active',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL COMMENT 'Soft delete timestamp',
 
-  INDEX idx_status (status)
-) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='Organizaciones/empresas registradas';
+  INDEX idx_status (status),
+  INDEX idx_api_key (api_key)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Organizations/Companies';
 
--- ═══════════════════════════════════════════════════════════════════
--- TABLA 2: USUARIOS
--- Empleados/miembros de cada organización con roles RBAC
--- FK → organizations (CASCADE)
--- ═══════════════════════════════════════════════════════════════════
+-- ==================================================================================
+-- 2. USERS TABLE
+-- Employees/members of organizations
+-- ==================================================================================
+
 CREATE TABLE users (
   id CHAR(36) PRIMARY KEY,
   organization_id CHAR(36) NOT NULL,
-  email VARCHAR(255) NOT NULL COMMENT 'Único por organización',
-  password_hash VARCHAR(255) NOT NULL COMMENT 'Hash bcrypt',
-  full_name VARCHAR(255),
-  role ENUM('admin', 'operator', 'viewer') DEFAULT 'viewer' COMMENT 'Rol RBAC',
-  status ENUM('active', 'inactive', 'invited') DEFAULT 'invited',
+  email VARCHAR(255) NOT NULL COMMENT 'Unique per organization',
+  password_hash VARCHAR(255) NOT NULL COMMENT 'bcrypt hashed password',
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  full_name VARCHAR(255) COMMENT 'Denormalized for faster queries',
+  role ENUM('admin', 'operator', 'viewer') DEFAULT 'viewer' COMMENT 'RBAC role',
+  status ENUM('active', 'inactive', 'invited', 'pending_activation') DEFAULT 'invited',
+
+  -- Two Factor Authentication
+  two_factor_enabled BOOLEAN DEFAULT FALSE,
+  two_factor_secret VARCHAR(255) NULL COMMENT 'TOTP secret',
+  two_factor_verified_at TIMESTAMP NULL,
+
+  -- Audit fields
   last_login_at TIMESTAMP NULL,
+  last_login_ip VARCHAR(45) NULL,
+  login_failure_count INT DEFAULT 0 COMMENT 'For brute force detection',
+  login_failure_last_at TIMESTAMP NULL,
+
+  -- Notifications preferences
+  notify_critical_alerts BOOLEAN DEFAULT TRUE,
+  notify_daily_digest BOOLEAN DEFAULT TRUE,
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL,
 
-  CONSTRAINT fk_users_org FOREIGN KEY (organization_id)
-    REFERENCES organizations(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_org_users FOREIGN KEY (organization_id) REFERENCES organizations(id),
   CONSTRAINT unique_org_email UNIQUE (organization_id, email),
+  INDEX idx_organization_id (organization_id),
+  INDEX idx_email (email),
+  INDEX idx_status (status)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'System users';
 
-  INDEX idx_org_id (organization_id),
-  INDEX idx_email (email)
-) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='Usuarios del sistema';
+-- ==================================================================================
+-- 3. SESSIONS TABLE
+-- Track active user sessions and tokens
+-- ==================================================================================
 
--- ═══════════════════════════════════════════════════════════════════
--- TABLA 3: SESIONES (Control de acceso - JWT)
--- FK → users (CASCADE)
--- ═══════════════════════════════════════════════════════════════════
 CREATE TABLE sessions (
   id CHAR(36) PRIMARY KEY,
   user_id CHAR(36) NOT NULL,
   token VARCHAR(512) NOT NULL UNIQUE COMMENT 'JWT token',
-  ip_address VARCHAR(45) NOT NULL COMMENT 'IPv4 o IPv6',
-  expires_at TIMESTAMP NOT NULL,
+  refresh_token VARCHAR(512) NULL COMMENT 'Refresh token for token rotation',
+
+  -- Client information
+  ip_address VARCHAR(45) NOT NULL COMMENT 'IPv4 or IPv6',
+  user_agent TEXT COMMENT 'Browser/Client user agent',
+  device_type VARCHAR(50) COMMENT 'mobile, tablet, desktop',
+
+  -- Token metadata
+  expires_at TIMESTAMP NOT NULL COMMENT 'JWT expiration time',
+  revoked_at TIMESTAMP NULL COMMENT 'Manual token revocation',
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_sessions_user FOREIGN KEY (user_id)
-    REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
-
+  CONSTRAINT fk_session_user FOREIGN KEY (user_id) REFERENCES users(id),
   INDEX idx_user_id (user_id),
-  INDEX idx_expires (expires_at)
-) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='Sesiones activas y tokens JWT';
+  INDEX idx_expires_at (expires_at)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Active sessions and tokens';
 
--- ═══════════════════════════════════════════════════════════════════
--- TABLA 4: SERVIDORES (Infraestructura monitoreada)
--- FK → organizations (CASCADE)
--- ═══════════════════════════════════════════════════════════════════
+-- ==================================================================================
+-- 4. SERVERS TABLE
+-- Monitored servers/nodes in infrastructure
+-- ==================================================================================
+
 CREATE TABLE servers (
   id CHAR(36) PRIMARY KEY,
   organization_id CHAR(36) NOT NULL,
   hostname VARCHAR(255) NOT NULL,
-  ip_address VARCHAR(45),
-  os_name VARCHAR(100) COMMENT 'Ubuntu, Debian, Windows, etc',
-  region VARCHAR(100) COMMENT 'us-east-1, eu-west-1, etc',
-  status ENUM('healthy', 'warning', 'critical', 'offline') DEFAULT 'offline',
-  cpu_usage DECIMAL(5,2) DEFAULT 0 COMMENT 'Porcentaje 0-100',
-  ram_usage DECIMAL(5,2) DEFAULT 0 COMMENT 'Porcentaje 0-100',
-  disk_usage DECIMAL(5,2) DEFAULT 0 COMMENT 'Porcentaje 0-100',
-  uptime_seconds BIGINT DEFAULT 0 COMMENT 'Tiempo en línea (segundos)',
-  agent_api_key VARCHAR(255) UNIQUE COMMENT 'Clave API del agente',
+
+  -- Network information
+  ip_address VARCHAR(45) COMMENT 'External/Public IP',
+  ip_internal VARCHAR(45) COMMENT 'Internal/Private IP',
+  ip_gateway VARCHAR(45),
+
+  -- Server details
+  os_name VARCHAR(100) COMMENT 'Ubuntu, Debian, CentOS, Windows, etc',
+  os_version VARCHAR(100),
+  os_arch VARCHAR(20) COMMENT 'x86_64, arm64, etc',
+
+  -- Location
+  region VARCHAR(100) COMMENT 'AWS region, datacenter, etc',
+  datacenter VARCHAR(100),
+
+  -- Current status and metrics
+  status ENUM('healthy', 'warning', 'critical', 'offline', 'unknown') DEFAULT 'unknown',
+  cpu_usage DECIMAL(5,2) DEFAULT 0 COMMENT 'Percentage 0-100',
+  ram_usage DECIMAL(5,2) DEFAULT 0 COMMENT 'Percentage 0-100',
+  disk_usage DECIMAL(5,2) DEFAULT 0 COMMENT 'Percentage 0-100',
+
+  -- Uptime and heartbeat
+  uptime_seconds BIGINT DEFAULT 0 COMMENT 'System uptime in seconds',
+
+  -- Agent information
+  agent_version VARCHAR(20),
+  agent_installed_at TIMESTAMP NULL,
+  agent_api_key VARCHAR(255) UNIQUE COMMENT 'API key for this agent',
+
+  -- Heartbeat tracking for offline detection
   last_heartbeat TIMESTAMP NULL,
+  last_heartbeat_at TIMESTAMP NULL COMMENT 'More precise timestamp',
+  heartbeat_interval_seconds INT DEFAULT 60,
+
+  -- Metadata
+  enabled BOOLEAN DEFAULT TRUE,
+  environment VARCHAR(50) COMMENT 'production, staging, development, test',
+  owner VARCHAR(100),
+  tags JSON COMMENT 'Custom tags for organization',
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL,
 
-  CONSTRAINT fk_servers_org FOREIGN KEY (organization_id)
-    REFERENCES organizations(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_server_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
   CONSTRAINT unique_org_hostname UNIQUE (organization_id, hostname),
+  INDEX idx_organization_id (organization_id),
+  INDEX idx_status (status),
+  INDEX idx_last_heartbeat (last_heartbeat),
+  INDEX idx_environment (environment),
+  INDEX idx_os_name (os_name)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Monitored servers/infrastructure nodes';
 
-  INDEX idx_org_id (organization_id),
-  INDEX idx_status (status)
-) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='Servidores/nodos monitoreados';
+-- ==================================================================================
+-- 5. METRICS TABLE
+-- Time-series metrics from servers (CPU, RAM, Disk, Network)
+-- IMPORTANT: Should be partitioned by month in production for performance
+-- ==================================================================================
 
--- ═══════════════════════════════════════════════════════════════════
--- TABLA 5: MÉTRICAS (Serie de tiempo - corazón del monitoreo)
--- FK → servers (CASCADE), FK → organizations (CASCADE)
--- ═══════════════════════════════════════════════════════════════════
 CREATE TABLE metrics (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   server_id CHAR(36) NOT NULL,
-  organization_id CHAR(36) NOT NULL COMMENT 'Desnormalizado para consultas rápidas',
-  cpu_usage DECIMAL(5,2) NOT NULL,
-  ram_usage DECIMAL(5,2) NOT NULL,
-  disk_usage DECIMAL(5,2) NOT NULL,
-  network_bytes_in BIGINT DEFAULT 0 COMMENT 'Bytes recibidos',
-  network_bytes_out BIGINT DEFAULT 0 COMMENT 'Bytes enviados',
-  response_time_ms INT DEFAULT 0 COMMENT 'Tiempo de respuesta promedio (ms)',
+  organization_id CHAR(36) NOT NULL COMMENT 'Denormalized for faster queries',
+
+  -- Resource metrics
+  cpu_usage DECIMAL(5,2) NOT NULL COMMENT 'CPU percentage 0-100',
+  ram_usage DECIMAL(5,2) NOT NULL COMMENT 'Memory percentage 0-100',
+  disk_usage DECIMAL(5,2) NOT NULL COMMENT 'Disk percentage 0-100',
+
+  -- Network metrics
+  network_bytes_in BIGINT DEFAULT 0 COMMENT 'Bytes received',
+  network_bytes_out BIGINT DEFAULT 0 COMMENT 'Bytes transmitted',
+  network_packets_in BIGINT DEFAULT 0,
+  network_packets_out BIGINT DEFAULT 0,
+  network_errors_in INT DEFAULT 0,
+  network_errors_out INT DEFAULT 0,
+
+  -- Process and connection metrics
+  processes_count INT DEFAULT 0 COMMENT 'Total running processes',
+  tcp_connections INT DEFAULT 0 COMMENT 'Total TCP connections',
+  established_connections INT DEFAULT 0 COMMENT 'Established TCP connections',
+
+  -- Application metrics
+  response_time_ms INT DEFAULT 0 COMMENT 'Average response time in milliseconds',
+  request_count INT DEFAULT 0 COMMENT 'Requests in the interval',
+  error_count INT DEFAULT 0 COMMENT 'Failed requests in the interval',
+
+  -- Temperature and other hardware
+  cpu_temp_celsius DECIMAL(5,2) NULL,
+  memory_available_mb BIGINT DEFAULT 0,
+  swap_used_mb BIGINT DEFAULT 0,
+
+  -- Timestamp for time-series
   timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_metrics_server FOREIGN KEY (server_id)
-    REFERENCES servers(id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_metrics_org FOREIGN KEY (organization_id)
-    REFERENCES organizations(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_metrics_server FOREIGN KEY (server_id) REFERENCES servers(id),
+  CONSTRAINT fk_metrics_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  INDEX idx_server_timestamp (server_id, timestamp),
+  INDEX idx_organization_timestamp (organization_id, timestamp),
+  INDEX idx_timestamp (timestamp)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Time-series metrics';
 
-  INDEX idx_server_time (server_id, timestamp DESC),
-  INDEX idx_org_time (organization_id, timestamp DESC)
-) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='Métricas de rendimiento en serie de tiempo';
+-- Alternative: For very high volume, consider TimescaleDB or InfluxDB
+-- CREATE TABLE metrics_hypertable (
+--   LIKE metrics INCLUDING ALL
+-- ) USING timescaledb;
+-- SELECT create_hypertable('metrics_hypertable', 'timestamp');
 
--- ═══════════════════════════════════════════════════════════════════
--- TABLA 6: ALERTAS (Incidentes detectados)
--- FK → organizations (CASCADE), FK → servers (SET NULL)
--- ═══════════════════════════════════════════════════════════════════
+-- ==================================================================================
+-- 6. ALERTS TABLE
+-- Generated alerts from threshold violations or anomalies
+-- ==================================================================================
+
 CREATE TABLE alerts (
   id CHAR(36) PRIMARY KEY,
   organization_id CHAR(36) NOT NULL,
-  server_id CHAR(36) NULL COMMENT 'NULL = alerta global',
+  server_id CHAR(36) NULL COMMENT 'NULL if organization-wide alert',
+  deleted_at TIMESTAMP NULL,
+
+  -- Alert details
   type ENUM('critical', 'warning', 'info') NOT NULL,
   title VARCHAR(255) NOT NULL,
-  description TEXT,
-  status ENUM('active', 'acknowledged', 'resolved') DEFAULT 'active',
+  description TEXT COMMENT 'Full alert message',
+
+  -- Alert status
+  status ENUM('active', 'acknowledged', 'resolved', 'silenced') DEFAULT 'active',
+
+  -- Threshold details (for metric-based alerts)
+  metric_type VARCHAR(100) COMMENT 'cpu, ram, disk, network, response_time, etc',
+  threshold_value DECIMAL(10,2) COMMENT 'Configured threshold',
+  current_value DECIMAL(10,2) COMMENT 'Current value that triggered alert',
+
+  -- Acknowledgment
+  acknowledged_at TIMESTAMP NULL,
+  acknowledged_by CHAR(36) NULL COMMENT 'User who acknowledged',
+
+  -- Resolution
   resolved_at TIMESTAMP NULL,
+  resolved_by CHAR(36) NULL COMMENT 'User who resolved',
+  resolution_notes TEXT,
+
+  -- Automation
+  auto_resolved_at TIMESTAMP NULL COMMENT 'Automatically resolved after condition cleared',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_alerts_org FOREIGN KEY (organization_id)
-    REFERENCES organizations(id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_alerts_server FOREIGN KEY (server_id)
-    REFERENCES servers(id) ON DELETE SET NULL ON UPDATE CASCADE,
-
-  INDEX idx_org_id (organization_id),
+  CONSTRAINT fk_alert_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  CONSTRAINT fk_alert_server FOREIGN KEY (server_id) REFERENCES servers(id),
+  CONSTRAINT fk_alert_ack_user FOREIGN KEY (acknowledged_by) REFERENCES users(id),
+  CONSTRAINT fk_alert_res_user FOREIGN KEY (resolved_by) REFERENCES users(id),
+  INDEX idx_organization_id (organization_id),
+  INDEX idx_server_id (server_id),
   INDEX idx_status (status),
-  INDEX idx_type (type)
-) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='Alertas generadas por el sistema';
+  INDEX idx_type (type),
+  INDEX idx_created_at (created_at)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Generated alerts';
 
--- ═══════════════════════════════════════════════════════════════════
--- TABLA 7: AUDIT_LOGS (Bitácora de auditoría - caja negra)
--- FK → organizations (CASCADE), FK → users (SET NULL)
--- ═══════════════════════════════════════════════════════════════════
+-- ==================================================================================
+-- 7. AUDIT_LOGS TABLE
+-- Comprehensive audit trail of all system actions
+-- ==================================================================================
+
 CREATE TABLE audit_logs (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   organization_id CHAR(36) NOT NULL,
-  user_id CHAR(36) NULL COMMENT 'NULL = acción del sistema',
-  action VARCHAR(100) NOT NULL COMMENT 'LOGIN, CREATE, UPDATE, DELETE, etc',
-  resource_type VARCHAR(100) COMMENT 'users, servers, alerts, etc',
-  resource_name VARCHAR(255) COMMENT 'Nombre del recurso afectado',
+  user_id CHAR(36) NULL COMMENT 'NULL for system-generated actions',
+
+  -- Action details
+  action VARCHAR(100) NOT NULL COMMENT 'LOGIN, LOGOUT, CREATE, UPDATE, DELETE, DEPLOY, CONFIGURE, etc',
+  resource_type VARCHAR(100) COMMENT 'users, servers, rules, alerts, settings, etc',
+  resource_id VARCHAR(255) NULL COMMENT 'ID of affected resource',
+  resource_name VARCHAR(255) COMMENT 'Name of affected resource for readability',
+
+  -- Request details
   ip_address VARCHAR(45) NOT NULL,
+  user_agent TEXT NULL,
+
+  -- Result
   status ENUM('success', 'warning', 'critical', 'failure') DEFAULT 'success',
-  changes JSON COMMENT 'Antes/después para trazabilidad',
+  error_message TEXT NULL COMMENT 'If action failed',
+
+  -- Change tracking
+  changes JSON COMMENT 'Before/after values for audit trail',
+  details JSON COMMENT 'Additional context',
+
   timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_audit_org FOREIGN KEY (organization_id)
-    REFERENCES organizations(id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_audit_user FOREIGN KEY (user_id)
-    REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
-
-  INDEX idx_org_id (organization_id), 
+  CONSTRAINT fk_audit_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id),
+  INDEX idx_organization_id (organization_id),
+  INDEX idx_user_id (user_id),
   INDEX idx_action (action),
-  INDEX idx_timestamp (timestamp)
-) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='Bitácora de auditoría del sistema';
+  INDEX idx_resource_type (resource_type),
+  INDEX idx_timestamp (timestamp),
+  INDEX idx_org_timestamp (organization_id, timestamp)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Audit trail of all actions';
 
 -- ==================================================================================
--- PARTE 2: FUNCIONES (3 funciones)
+-- 8. SECURITY_THREATS TABLE
+-- Detected security threats and malicious activities
 -- ==================================================================================
 
-DELIMITER //
+CREATE TABLE security_threats (
+  id CHAR(36) PRIMARY KEY,
+  organization_id CHAR(36) NOT NULL,
+  server_id CHAR(36) NULL,
 
--- ───────────────────────────────────────────────────────────────────
--- FUNCIÓN 1: Calcular el estado de salud de un servidor
--- Recibe los % de CPU y RAM, retorna el status automáticamente
--- ───────────────────────────────────────────────────────────────────
-CREATE FUNCTION fn_calculate_server_status(
-  p_cpu DECIMAL(5,2),
-  p_ram DECIMAL(5,2)
-)
-RETURNS VARCHAR(20)
-DETERMINISTIC
-BEGIN
-  IF p_cpu >= 90 OR p_ram >= 90 THEN
-    RETURN 'critical';
-  ELSEIF p_cpu >= 75 OR p_ram >= 75 THEN
-    RETURN 'warning';
-  ELSE
-    RETURN 'healthy';
-  END IF;
-END //
+  -- Threat classification
+  type VARCHAR(100) NOT NULL COMMENT 'Brute Force, SQL Injection, Port Scan, DDoS, XSS, Malware, etc',
+  severity ENUM('critical', 'high', 'medium', 'low') NOT NULL,
 
--- ───────────────────────────────────────────────────────────────────
--- FUNCIÓN 2: Contar alertas activas de una organización
--- Retorna el total de alertas sin resolver
--- ───────────────────────────────────────────────────────────────────
-CREATE FUNCTION fn_active_alert_count(
-  p_org_id CHAR(36)
-)
-RETURNS INT
-READS SQL DATA
-BEGIN
-  DECLARE total INT;
-  SELECT COUNT(*) INTO total
-  FROM alerts
-  WHERE organization_id = p_org_id AND status = 'active';
-  RETURN total;
-END //
+  -- Threat source and target
+  source_ip VARCHAR(45) COMMENT 'Attacker IP',
+  source_port INT,
+  target_port INT COMMENT 'Port under attack',
+  protocol VARCHAR(10) COMMENT 'TCP, UDP, ICMP, etc',
 
--- ───────────────────────────────────────────────────────────────────
--- FUNCIÓN 3: Validar formato de email
--- Retorna TRUE si el email tiene formato válido
--- ───────────────────────────────────────────────────────────────────
-CREATE FUNCTION fn_validate_email(
-  p_email VARCHAR(255)
-)
-RETURNS BOOLEAN
-DETERMINISTIC
-BEGIN
-  -- Verifica que contenga @ y al menos un punto después del @
-  IF p_email REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$' THEN
-    RETURN TRUE;
-  ELSE
-    RETURN FALSE;
-  END IF;
-END //
+  -- Threat details
+  description TEXT,
+  attack_vector VARCHAR(100) COMMENT 'How the attack is performed',
+
+  -- Status and response
+  status ENUM('blocked', 'mitigated', 'monitoring', 'under_investigation') DEFAULT 'monitoring',
+  attempt_count INT DEFAULT 1 COMMENT 'Number of attack attempts',
+
+  -- Automatic response
+  auto_blocked BOOLEAN DEFAULT FALSE,
+  blocked_at TIMESTAMP NULL COMMENT 'When it was automatically blocked',
+
+  -- User response
+  responded_by CHAR(36) NULL COMMENT 'User who responded to threat',
+  responded_at TIMESTAMP NULL,
+  response_action VARCHAR(255) COMMENT 'What action was taken',
+
+  detected_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TIMESTAMP NULL,
+
+  CONSTRAINT fk_threat_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  CONSTRAINT fk_threat_server FOREIGN KEY (server_id) REFERENCES servers(id),
+  CONSTRAINT fk_threat_user FOREIGN KEY (responded_by) REFERENCES users(id),
+  INDEX idx_organization_id (organization_id),
+  INDEX idx_severity (severity),
+  INDEX idx_status (status),
+  INDEX idx_detected_at (detected_at),
+  INDEX idx_source_ip (source_ip)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Detected security threats';
 
 -- ==================================================================================
--- PARTE 3: PROCEDIMIENTOS ALMACENADOS (2 procedimientos)
+-- 9. VULNERABILITIES TABLE
+-- CVEs and vulnerabilities found in infrastructure
 -- ==================================================================================
 
--- ───────────────────────────────────────────────────────────────────
--- SP 1: Registrar métricas y actualizar estado del servidor
--- Proceso de inserción compleja: inserta métrica + actualiza server
--- + genera alerta automática si hay valores críticos
--- ───────────────────────────────────────────────────────────────────
-CREATE PROCEDURE sp_register_metrics(
-  IN p_server_id CHAR(36),
-  IN p_org_id CHAR(36),
-  IN p_cpu DECIMAL(5,2),
-  IN p_ram DECIMAL(5,2),
-  IN p_disk DECIMAL(5,2),
-  IN p_net_in BIGINT,
-  IN p_net_out BIGINT,
-  IN p_resp_time INT
-)
-BEGIN
-  DECLARE v_new_status VARCHAR(20);
-  DECLARE v_alert_id CHAR(36);
+CREATE TABLE vulnerabilities (
+  id CHAR(36) PRIMARY KEY,
+  organization_id CHAR(36) NOT NULL,
+  server_id CHAR(36) NULL COMMENT 'NULL for organization-wide vulnerabilities',
 
-  -- 1. Insertar la métrica en la serie de tiempo
-  INSERT INTO metrics (server_id, organization_id, cpu_usage, ram_usage, disk_usage,
-                       network_bytes_in, network_bytes_out, response_time_ms)
-  VALUES (p_server_id, p_org_id, p_cpu, p_ram, p_disk, p_net_in, p_net_out, p_resp_time);
+  -- CVE Information
+  cve_id VARCHAR(50) UNIQUE COMMENT 'CVE-YYYY-XXXXX',
+  cve_url VARCHAR(500),
 
-  -- 2. Calcular nuevo estado usando nuestra función
-  SET v_new_status = fn_calculate_server_status(p_cpu, p_ram);
+  -- Vulnerable component
+  component_name VARCHAR(255) NOT NULL COMMENT 'OpenSSL, nginx, PostgreSQL, etc',
+  component_type VARCHAR(100) COMMENT 'library, application, os, firmware, etc',
+  current_version VARCHAR(100),
+  vulnerable_versions VARCHAR(500) COMMENT 'Affected version range',
+  patch_available_version VARCHAR(100),
 
-  -- 3. Actualizar el servidor con las métricas actuales
-  UPDATE servers
-  SET cpu_usage = p_cpu,
-      ram_usage = p_ram,
-      disk_usage = p_disk,
-      status = v_new_status,
-      last_heartbeat = NOW()
-  WHERE id = p_server_id;
+  -- Vulnerability details
+  severity ENUM('critical', 'high', 'medium', 'low') NOT NULL,
+  description TEXT,
+  cvss_score DECIMAL(3,1) COMMENT 'CVSS v3 score 0-10',
 
-  -- 4. Si el estado es crítico, generar alerta automática
-  IF v_new_status = 'critical' THEN
-    SET v_alert_id = UUID();
-    INSERT INTO alerts (id, organization_id, server_id, type, title, description)
-    VALUES (
-      v_alert_id,
-      p_org_id,
-      p_server_id,
-      'critical',
-      CONCAT('Recursos críticos en servidor'),
-      CONCAT('CPU: ', p_cpu, '% | RAM: ', p_ram, '% - Se requiere atención inmediata')
-    );
-  END IF;
-END //
+  -- Status and patching
+  status ENUM('patched', 'pending', 'monitoring', 'wont_patch') DEFAULT 'pending',
+  detected_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  patched_at TIMESTAMP NULL,
 
--- ───────────────────────────────────────────────────────────────────
--- SP 2: Generar reporte parametrizado del estado de infraestructura
--- Recibe una org_id y retorna un resumen completo
--- ───────────────────────────────────────────────────────────────────
-CREATE PROCEDURE sp_infrastructure_report(
-  IN p_org_id CHAR(36)
-)
-BEGIN
-  -- Reporte 1: Resumen de servidores por estado
-  SELECT
-    COUNT(*) AS total_servers,
-    SUM(CASE WHEN status = 'healthy' THEN 1 ELSE 0 END) AS healthy,
-    SUM(CASE WHEN status = 'warning' THEN 1 ELSE 0 END) AS warning,
-    SUM(CASE WHEN status = 'critical' THEN 1 ELSE 0 END) AS critical,
-    SUM(CASE WHEN status = 'offline' THEN 1 ELSE 0 END) AS offline,
-    ROUND(AVG(cpu_usage), 2) AS avg_cpu,
-    ROUND(AVG(ram_usage), 2) AS avg_ram,
-    ROUND(AVG(disk_usage), 2) AS avg_disk
-  FROM servers
-  WHERE organization_id = p_org_id;
+  -- Remediation
+  remediation_notes TEXT,
+  remediation_by CHAR(36) NULL COMMENT 'User responsible',
 
-  -- Reporte 2: Alertas activas por tipo
-  SELECT
-    type,
-    COUNT(*) AS total,
-    MIN(created_at) AS oldest_alert,
-    MAX(created_at) AS newest_alert
-  FROM alerts
-  WHERE organization_id = p_org_id AND status = 'active'
-  GROUP BY type
-  ORDER BY FIELD(type, 'critical', 'warning', 'info');
-
-  -- Reporte 3: Actividad de auditoría últimas 24 horas
-  SELECT
-    action,
-    COUNT(*) AS occurrences,
-    SUM(CASE WHEN status = 'critical' THEN 1 ELSE 0 END) AS critical_events
-  FROM audit_logs
-  WHERE organization_id = p_org_id
-    AND timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-  GROUP BY action
-  ORDER BY occurrences DESC;
-END //
+  CONSTRAINT fk_vuln_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  CONSTRAINT fk_vuln_server FOREIGN KEY (server_id) REFERENCES servers(id),
+  CONSTRAINT fk_vuln_user FOREIGN KEY (remediation_by) REFERENCES users(id),
+  INDEX idx_organization_id (organization_id),
+  INDEX idx_severity (severity),
+  INDEX idx_cve_id (cve_id),
+  INDEX idx_detected_at (detected_at)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Vulnerabilities and CVEs';
 
 -- ==================================================================================
--- PARTE 4: TRIGGERS (2 triggers)
+-- 10. FIREWALL_RULES TABLE
+-- Network firewall rules configuration and hits
 -- ==================================================================================
 
--- ───────────────────────────────────────────────────────────────────
--- TRIGGER 1: Auditoría automática al modificar un servidor
--- Registra en audit_logs cada vez que se actualiza un servidor
--- ───────────────────────────────────────────────────────────────────
-CREATE TRIGGER trg_audit_server_update
-AFTER UPDATE ON servers
-FOR EACH ROW
-BEGIN
-  -- Solo registrar si cambió el estado o las métricas significativamente
-  IF OLD.status != NEW.status
-     OR ABS(OLD.cpu_usage - NEW.cpu_usage) > 5
-     OR ABS(OLD.ram_usage - NEW.ram_usage) > 5 THEN
+CREATE TABLE firewall_rules (
+  id CHAR(36) PRIMARY KEY,
+  organization_id CHAR(36) NOT NULL,
 
-    INSERT INTO audit_logs (organization_id, user_id, action, resource_type,
-                            resource_name, ip_address, status, changes)
-    VALUES (
-      NEW.organization_id,
-      NULL, -- acción del sistema
-      'UPDATE',
-      'servers',
-      NEW.hostname,
-      '127.0.0.1',
-      CASE
-        WHEN NEW.status = 'critical' THEN 'critical'
-        WHEN NEW.status = 'warning' THEN 'warning'
-        ELSE 'success'
-      END,
-      JSON_OBJECT(
-        'status_before', OLD.status,
-        'status_after', NEW.status,
-        'cpu_before', OLD.cpu_usage,
-        'cpu_after', NEW.cpu_usage,
-        'ram_before', OLD.ram_usage,
-        'ram_after', NEW.ram_usage
-      )
-    );
-  END IF;
-END //
+  -- Rule identification
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  rule_group VARCHAR(100) COMMENT 'For organizing rules',
 
--- ───────────────────────────────────────────────────────────────────
--- TRIGGER 2: Validación de seguridad al insertar un usuario
--- Verifica que el email sea válido y registra el evento en auditoría
--- ───────────────────────────────────────────────────────────────────
-CREATE TRIGGER trg_validate_user_insert
-BEFORE INSERT ON users
-FOR EACH ROW
-BEGIN
-  -- Validar formato de email usando nuestra función
-  IF fn_validate_email(NEW.email) = FALSE THEN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'ERROR: El formato del email no es válido';
-  END IF;
+  -- Network details
+  protocol VARCHAR(10) COMMENT 'TCP, UDP, ICMP, ALL',
+  port_from INT COMMENT 'Port range from',
+  port_to INT COMMENT 'Port range to',
+  source_ip_range VARCHAR(100) COMMENT 'CIDR notation',
+  destination_ip_range VARCHAR(100) COMMENT 'CIDR notation',
 
-  -- Asegurar que el password_hash no esté vacío
-  IF NEW.password_hash IS NULL OR LENGTH(NEW.password_hash) < 10 THEN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'ERROR: El hash de contraseña es inválido o muy corto';
-  END IF;
-END //
+  -- Direction (if applicable)
+  direction ENUM('inbound', 'outbound', 'both') DEFAULT 'both',
 
-DELIMITER ;
+  -- Action
+  action ENUM('allow', 'deny', 'rate_limit', 'alert') NOT NULL,
 
--- Trigger de auditoría para INSERT en users (AFTER, para que el user ya exista)
-DELIMITER //
-CREATE TRIGGER trg_audit_user_insert
-AFTER INSERT ON users
-FOR EACH ROW
-BEGIN
-  INSERT INTO audit_logs (organization_id, user_id, action, resource_type,
-                          resource_name, ip_address, status)
-  VALUES (
-    NEW.organization_id,
-    NEW.id,
-    'CREATE',
-    'users',
-    NEW.full_name,
-    '127.0.0.1',
-    'success'
-  );
-END //
-DELIMITER ;
+  -- Configuration
+  priority INT DEFAULT 100 COMMENT 'Lower = higher priority',
+  enabled BOOLEAN DEFAULT TRUE,
+  stateful BOOLEAN DEFAULT TRUE,
+
+  -- Performance tracking
+  hit_count BIGINT DEFAULT 0 COMMENT 'How many times this rule was matched',
+  last_hit_at TIMESTAMP NULL,
+  bytes_matched BIGINT DEFAULT 0,
+  packets_matched BIGINT DEFAULT 0,
+
+  -- Metadata
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_rule_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  INDEX idx_organization_id (organization_id),
+  INDEX idx_enabled (enabled),
+  INDEX idx_priority (priority),
+  INDEX idx_action (action)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Firewall rules';
 
 -- ==================================================================================
--- PARTE 5: TRANSACCIÓN
--- Proceso sensible: Dar de baja una organización completa
--- Resuelve todas sus alertas, cierra sesiones y desactiva usuarios
+-- 11. NOTIFICATIONS TABLE
+-- User notifications and alerts
 -- ==================================================================================
 
-DELIMITER //
-CREATE PROCEDURE sp_suspend_organization(
-  IN p_org_id CHAR(36),
-  IN p_reason TEXT
-)
-BEGIN
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    -- Si algo falla, revertir TODOS los cambios
-    ROLLBACK;
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'ERROR: La suspensión falló, se revirtieron todos los cambios';
-  END;
+CREATE TABLE notifications (
+  id CHAR(36) PRIMARY KEY,
+  user_id CHAR(36) NOT NULL,
+  organization_id CHAR(36) NOT NULL,
 
-  START TRANSACTION;
+  -- Notification content
+  type ENUM('critical', 'warning', 'success', 'info') NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
 
-    -- 1. Resolver todas las alertas activas
-    UPDATE alerts
-    SET status = 'resolved', resolved_at = NOW()
-    WHERE organization_id = p_org_id AND status IN ('active', 'acknowledged');
+  -- Related resources
+  related_alert_id CHAR(36) NULL COMMENT 'Link to alert if applicable',
+  related_threat_id CHAR(36) NULL COMMENT 'Link to threat if applicable',
 
-    -- 2. Eliminar todas las sesiones activas (cerrar sesión forzada)
-    DELETE FROM sessions
-    WHERE user_id IN (SELECT id FROM users WHERE organization_id = p_org_id);
+  -- Status
+  is_read BOOLEAN DEFAULT FALSE,
+  read_at TIMESTAMP NULL,
 
-    -- 3. Desactivar todos los usuarios
-    UPDATE users
-    SET status = 'inactive'
-    WHERE organization_id = p_org_id;
+  -- Action
+  action_url VARCHAR(500) COMMENT 'URL to navigate to on action',
+  action_label VARCHAR(100) COMMENT 'Button label for action',
 
-    -- 4. Poner todos los servidores offline
-    UPDATE servers
-    SET status = 'offline'
-    WHERE organization_id = p_org_id;
+  -- Delivery
+  email_sent BOOLEAN DEFAULT FALSE,
+  email_sent_at TIMESTAMP NULL,
 
-    -- 5. Cambiar estado de la organización
-    UPDATE organizations
-    SET status = 'suspended'
-    WHERE id = p_org_id;
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NULL COMMENT 'Auto-archive old notifications',
 
-    -- 6. Registrar en auditoría
-    INSERT INTO audit_logs (organization_id, user_id, action, resource_type,
-                            resource_name, ip_address, status, changes)
-    VALUES (
-      p_org_id,
-      NULL,
-      'SUSPEND',
-      'organizations',
-      (SELECT name FROM organizations WHERE id = p_org_id),
-      '127.0.0.1',
-      'critical',
-      JSON_OBJECT('reason', p_reason, 'suspended_at', NOW())
-    );
-
-  -- Si todo salió bien, confirmar los cambios
-  COMMIT;
-END //
-DELIMITER ;
+  CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_notif_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  CONSTRAINT fk_notif_alert FOREIGN KEY (related_alert_id) REFERENCES alerts(id),
+  CONSTRAINT fk_notif_threat FOREIGN KEY (related_threat_id) REFERENCES security_threats(id),
+  INDEX idx_user_id (user_id),
+  INDEX idx_read_created (is_read, created_at),
+  INDEX idx_created_at (created_at)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'User notifications';
 
 -- ==================================================================================
--- PARTE 6: SEGURIDAD Y ROLES DE USUARIO (4 roles)
+-- 12. SECURITY_EVENTS TABLE
+-- Raw security events from agents (connections, processes, logins, etc)
 -- ==================================================================================
 
--- ROL 1: Administrador (DBA) - Acceso total
-CREATE USER IF NOT EXISTS 'hawkscope_dba'@'%' IDENTIFIED BY 'Dba$ecur3_2024!';
-GRANT ALL PRIVILEGES ON hawkscope_db.* TO 'hawkscope_dba'@'%' WITH GRANT OPTION;
+CREATE TABLE security_events (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  server_id CHAR(36) NOT NULL,
+  organization_id CHAR(36) NOT NULL,
 
--- ROL 2: Operador - Lectura y escritura en tablas, SIN acceso DDL
-CREATE USER IF NOT EXISTS 'hawkscope_operator'@'%' IDENTIFIED BY 'Op3r@tor_2024!';
-GRANT SELECT, INSERT, UPDATE, DELETE ON hawkscope_db.organizations TO 'hawkscope_operator'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON hawkscope_db.users TO 'hawkscope_operator'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON hawkscope_db.sessions TO 'hawkscope_operator'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON hawkscope_db.servers TO 'hawkscope_operator'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON hawkscope_db.metrics TO 'hawkscope_operator'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON hawkscope_db.alerts TO 'hawkscope_operator'@'%';
-GRANT SELECT ON hawkscope_db.audit_logs TO 'hawkscope_operator'@'%';
--- Operador puede ejecutar los SPs pero NO modificar estructura
-GRANT EXECUTE ON PROCEDURE hawkscope_db.sp_register_metrics TO 'hawkscope_operator'@'%';
-GRANT EXECUTE ON PROCEDURE hawkscope_db.sp_infrastructure_report TO 'hawkscope_operator'@'%';
+  -- Event classification
+  event_type VARCHAR(100) NOT NULL COMMENT 'connection, process, user_login, file_access, service_change, etc',
+  severity VARCHAR(20) COMMENT 'low, medium, high, critical',
 
--- ROL 3: Auditor - SOLO puede ejecutar SPs, sin acceso directo a tablas
-CREATE USER IF NOT EXISTS 'hawkscope_auditor'@'%' IDENTIFIED BY 'Aud1t0r_2024!';
-GRANT EXECUTE ON PROCEDURE hawkscope_db.sp_infrastructure_report TO 'hawkscope_auditor'@'%';
-GRANT EXECUTE ON PROCEDURE hawkscope_db.sp_suspend_organization TO 'hawkscope_auditor'@'%';
--- El auditor puede leer SOLO la bitácora de auditoría
-GRANT SELECT ON hawkscope_db.audit_logs TO 'hawkscope_auditor'@'%';
+  -- Source and destination
+  source_ip VARCHAR(45),
+  source_port INT,
+  destination_ip VARCHAR(45),
+  destination_port INT,
 
--- ROL 4 (Sugerencia propia): Agente de Monitoreo
--- Solo puede INSERTAR métricas y ACTUALIZAR el heartbeat de servidores
--- Simula el agente instalado en cada servidor que envía datos
-CREATE USER IF NOT EXISTS 'hawkscope_agent'@'%' IDENTIFIED BY 'Ag3nt_M0n1t0r!';
-GRANT INSERT ON hawkscope_db.metrics TO 'hawkscope_agent'@'%';
-GRANT SELECT, UPDATE (cpu_usage, ram_usage, disk_usage, status, last_heartbeat)
-  ON hawkscope_db.servers TO 'hawkscope_agent'@'%';
-GRANT EXECUTE ON PROCEDURE hawkscope_db.sp_register_metrics TO 'hawkscope_agent'@'%';
+  -- Process information
+  process_name VARCHAR(255),
+  process_pid INT,
+  process_parent_pid INT,
+  process_user VARCHAR(100),
 
-FLUSH PRIVILEGES;
+  -- User information
+  user_name VARCHAR(100),
+  user_id_local INT COMMENT 'Local UID on the server',
 
--- ==================================================================================
--- PARTE 7: DML - DATOS DE DEMOSTRACIÓN
--- ==================================================================================
+  -- Details
+  action VARCHAR(100) COMMENT 'connect, bind, listen, create, delete, modify, etc',
+  details TEXT COMMENT 'Additional event information',
+  raw_data JSON COMMENT 'Full raw event from agent',
 
--- Organización demo
-INSERT INTO organizations (id, name, industry, api_key, status) VALUES
-('550e8400-e29b-41d4-a716-446655440000', 'HawkScope Demo Corp', 'Tecnología', 'sk_demo_hawkscope_2024', 'active');
+  -- Status
+  processed BOOLEAN DEFAULT FALSE COMMENT 'Has been analyzed for threats',
+  threat_detected BOOLEAN DEFAULT FALSE,
+  related_threat_id CHAR(36) NULL,
 
--- Usuarios (password_hash simulado con bcrypt format)
-INSERT INTO users (id, organization_id, email, password_hash, full_name, role, status) VALUES
-('660e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000',
- 'admin@hawkscope.io', '$2b$12$LJ3m5Rs1GK0sR1KhMer0F.h3vH3hR3x3qA8X1v5R8nB3gD5wS7y2K',
- 'Admin Principal', 'admin', 'active'),
+  timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-('660e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440000',
- 'operador@hawkscope.io', '$2b$12$PQ7k5Ws3HN2tT3YjQer1G.k4xI4iS4z4rB9Y2w6S9oC4hE6xT8z3M',
- 'Carlos Operador', 'operator', 'active'),
-
-('660e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000',
- 'viewer@hawkscope.io', '$2b$12$MN4h2Vp0EL9qQ0VgNdr8D.g1uF1fP1w1oY6V9t3P6lZ1eB3uQ5w0J',
- 'Ana Viewer', 'viewer', 'active');
-
--- Servidores
-INSERT INTO servers (id, organization_id, hostname, ip_address, os_name, region, status, cpu_usage, ram_usage, disk_usage, uptime_seconds) VALUES
-('770e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000',
- 'prod-api-01', '10.0.1.10', 'Ubuntu 22.04', 'US-East', 'healthy', 42.00, 65.00, 45.00, 3932400),
-
-('770e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440000',
- 'prod-api-02', '10.0.1.11', 'Ubuntu 22.04', 'US-East', 'healthy', 38.00, 58.00, 52.00, 3932400),
-
-('770e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000',
- 'worker-03', '10.0.2.20', 'Debian 12', 'US-West', 'warning', 87.00, 72.00, 60.00, 1051200),
-
-('770e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440000',
- 'db-primary', '10.0.3.10', 'Ubuntu 22.04', 'US-East', 'healthy', 55.00, 80.00, 70.00, 7776000),
-
-('770e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440000',
- 'cache-redis', '10.0.4.10', 'Alpine 3.18', 'US-East', 'healthy', 12.00, 35.00, 15.00, 5184000);
-
--- Métricas históricas (simular las últimas horas)
-INSERT INTO metrics (server_id, organization_id, cpu_usage, ram_usage, disk_usage, network_bytes_in, network_bytes_out, response_time_ms, timestamp) VALUES
-('770e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', 35.20, 60.10, 44.50, 1048576, 524288, 95, DATE_SUB(NOW(), INTERVAL 3 HOUR)),
-('770e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', 42.80, 63.40, 44.80, 2097152, 1048576, 110, DATE_SUB(NOW(), INTERVAL 2 HOUR)),
-('770e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', 41.50, 65.00, 45.00, 1572864, 786432, 105, DATE_SUB(NOW(), INTERVAL 1 HOUR)),
-('770e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000', 78.30, 68.20, 58.00, 524288, 262144, 250, DATE_SUB(NOW(), INTERVAL 3 HOUR)),
-('770e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000', 85.10, 70.50, 59.20, 786432, 393216, 340, DATE_SUB(NOW(), INTERVAL 2 HOUR)),
-('770e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000', 87.40, 72.00, 60.00, 655360, 327680, 380, DATE_SUB(NOW(), INTERVAL 1 HOUR)),
-('770e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440000', 50.00, 78.00, 69.00, 3145728, 1572864, 45, DATE_SUB(NOW(), INTERVAL 2 HOUR)),
-('770e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440000', 55.00, 80.00, 70.00, 4194304, 2097152, 50, DATE_SUB(NOW(), INTERVAL 1 HOUR));
-
--- Alertas
-INSERT INTO alerts (id, organization_id, server_id, type, title, description, status) VALUES
-('880e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000',
- '770e8400-e29b-41d4-a716-446655440003', 'warning',
- 'CPU alta en worker-03', 'CPU al 87% durante los últimos 30 minutos', 'active'),
-
-('880e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440000',
- '770e8400-e29b-41d4-a716-446655440004', 'info',
- 'Disco al 70% en db-primary', 'Se recomienda planificar expansión de almacenamiento', 'active'),
-
-('880e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000',
- '770e8400-e29b-41d4-a716-446655440001', 'critical',
- 'Timeout en health-check', 'El servidor no respondió al health-check por 60 segundos', 'resolved');
-
--- Logs de auditoría
-INSERT INTO audit_logs (organization_id, user_id, action, resource_type, resource_name, ip_address, status) VALUES
-('550e8400-e29b-41d4-a716-446655440000', '660e8400-e29b-41d4-a716-446655440001',
- 'LOGIN', 'auth', 'Auth System', '192.168.1.100', 'success'),
-
-('550e8400-e29b-41d4-a716-446655440000', '660e8400-e29b-41d4-a716-446655440002',
- 'UPDATE', 'servers', 'worker-03', '192.168.1.105', 'success'),
-
-('550e8400-e29b-41d4-a716-446655440000', NULL,
- 'HEALTH', 'servers', 'All Servers', '10.0.0.1', 'success'),
-
-('550e8400-e29b-41d4-a716-446655440000', '660e8400-e29b-41d4-a716-446655440001',
- 'CREATE', 'users', 'Carlos Operador', '192.168.1.100', 'success');
+  CONSTRAINT fk_event_server FOREIGN KEY (server_id) REFERENCES servers(id),
+  CONSTRAINT fk_event_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  CONSTRAINT fk_event_threat FOREIGN KEY (related_threat_id) REFERENCES security_threats(id),
+  INDEX idx_server_timestamp (server_id, timestamp),
+  INDEX idx_org_timestamp (organization_id, timestamp),
+  INDEX idx_event_type (event_type),
+  INDEX idx_severity (severity),
+  INDEX idx_processed (processed)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Raw security events from agents';
 
 -- ==================================================================================
--- PARTE 8: CONSULTAS DE VERIFICACIÓN
--- Ejecutar al final para demostrar que todo funciona
+-- 13. BASELINE_METRICS TABLE
+-- Store normal baselines for anomaly detection
 -- ==================================================================================
 
--- ═══ VERIFICACIÓN 1: Ver estructura de tablas ═══
-SELECT '=== TABLAS CREADAS ===' AS info;
-SHOW TABLES;
+CREATE TABLE baseline_metrics (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  server_id CHAR(36) NOT NULL,
+  organization_id CHAR(36) NOT NULL,
 
--- ═══ VERIFICACIÓN 2: Probar la FUNCIÓN fn_calculate_server_status ═══
-SELECT '=== PRUEBA FUNCIÓN: fn_calculate_server_status ===' AS info;
+  -- Time period
+  hour_of_day INT COMMENT '0-23',
+  day_of_week INT COMMENT '0-6 (Sunday-Saturday)',
+  week_type VARCHAR(20) COMMENT 'weekday, weekend, holiday',
+
+  -- Baseline statistics
+  cpu_avg DECIMAL(5,2),
+  cpu_p95 DECIMAL(5,2) COMMENT '95th percentile',
+  cpu_p99 DECIMAL(5,2) COMMENT '99th percentile',
+
+  ram_avg DECIMAL(5,2),
+  ram_p95 DECIMAL(5,2),
+  ram_p99 DECIMAL(5,2),
+
+  network_bytes_in_avg BIGINT,
+  network_bytes_out_avg BIGINT,
+
+  request_count_avg INT,
+  response_time_avg INT,
+
+  samples_count INT COMMENT 'How many measurements this baseline is based on',
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_baseline_server FOREIGN KEY (server_id) REFERENCES servers(id),
+  CONSTRAINT fk_baseline_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  INDEX idx_server_id (server_id),
+  INDEX idx_day_hour (day_of_week, hour_of_day)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Baseline metrics for anomaly detection';
+
+-- ==================================================================================
+-- 14. API_KEYS TABLE
+-- For programmatic access and agent authentication
+-- ==================================================================================
+
+CREATE TABLE api_keys (
+  id CHAR(36) PRIMARY KEY,
+  organization_id CHAR(36) NOT NULL,
+  user_id CHAR(36) NULL COMMENT 'NULL for organization-level keys',
+
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+
+  key_hash VARCHAR(255) NOT NULL UNIQUE COMMENT 'SHA256 hash of the actual key',
+  key_prefix VARCHAR(20) COMMENT 'First 20 chars for display',
+
+  -- Permissions
+  scopes JSON COMMENT '["metrics:write", "servers:read", etc]',
+  permissions VARCHAR(255) COMMENT 'Comma-separated: agent, api_full, api_read',
+
+  -- Limits
+  rate_limit_per_minute INT DEFAULT 1000,
+
+  -- Status
+  enabled BOOLEAN DEFAULT TRUE,
+  last_used_at TIMESTAMP NULL,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NULL COMMENT 'Optional expiration',
+
+  CONSTRAINT fk_apikey_org FOREIGN KEY (organization_id) REFERENCES organizations(id),
+  CONSTRAINT fk_apikey_user FOREIGN KEY (user_id) REFERENCES users(id),
+  INDEX idx_organization_id (organization_id),
+  INDEX idx_enabled (enabled)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'API keys for external integrations';
+
+-- ==================================================================================
+-- VIEWS - Useful queries for common operations
+-- ==================================================================================
+
+-- Dashboard KPIs View
+CREATE VIEW dashboard_kpis AS
 SELECT
-  fn_calculate_server_status(45.0, 60.0) AS 'CPU=45 RAM=60 → healthy',
-  fn_calculate_server_status(80.0, 60.0) AS 'CPU=80 RAM=60 → warning',
-  fn_calculate_server_status(95.0, 60.0) AS 'CPU=95 RAM=60 → critical';
+  o.id as organization_id,
+  COUNT(DISTINCT s.id) as total_servers,
+  SUM(CASE WHEN s.status = 'healthy' THEN 1 ELSE 0 END) as healthy_servers,
+  SUM(CASE WHEN s.status = 'warning' THEN 1 ELSE 0 END) as warning_servers,
+  SUM(CASE WHEN s.status = 'critical' THEN 1 ELSE 0 END) as critical_servers,
+  SUM(CASE WHEN s.status = 'offline' THEN 1 ELSE 0 END) as offline_servers,
+  COUNT(DISTINCT a.id) as active_alerts,
+  AVG(s.cpu_usage) as avg_cpu,
+  AVG(s.ram_usage) as avg_ram,
+  AVG(s.disk_usage) as avg_disk
+FROM organizations o
+LEFT JOIN servers s ON o.id = s.organization_id AND s.deleted_at IS NULL
+LEFT JOIN alerts a ON o.id = a.organization_id AND a.status = 'active' AND a.deleted_at IS NULL
+GROUP BY o.id;
 
--- ═══ VERIFICACIÓN 3: Probar la FUNCIÓN fn_active_alert_count ═══
-SELECT '=== PRUEBA FUNCIÓN: fn_active_alert_count ===' AS info;
-SELECT fn_active_alert_count('550e8400-e29b-41d4-a716-446655440000') AS alertas_activas;
+-- Active Threats View
+CREATE VIEW active_threats_summary AS
+SELECT organization_id, severity, COUNT(*) as threat_count
+FROM security_threats
+WHERE status IN ('blocked', 'mitigated', 'monitoring')
+GROUP BY organization_id, severity;
 
--- ═══ VERIFICACIÓN 4: Probar la FUNCIÓN fn_validate_email ═══
-SELECT '=== PRUEBA FUNCIÓN: fn_validate_email ===' AS info;
-SELECT
-  fn_validate_email('admin@hawkscope.io') AS 'email_valido',
-  fn_validate_email('esto-no-es-email') AS 'email_invalido';
-
--- ═══ VERIFICACIÓN 5: Probar SP sp_register_metrics (generará alerta automática) ═══
-SELECT '=== PRUEBA SP: sp_register_metrics (CPU=95%, dispara alerta) ===' AS info;
-CALL sp_register_metrics(
-  '770e8400-e29b-41d4-a716-446655440001',
-  '550e8400-e29b-41d4-a716-446655440000',
-  95.50, 92.00, 46.00, 5242880, 2621440, 450
-);
--- Verificar que se generó la alerta y se actualizó el servidor
-SELECT id, hostname, status, cpu_usage, ram_usage FROM servers WHERE id = '770e8400-e29b-41d4-a716-446655440001';
-SELECT id, type, title, status FROM alerts WHERE server_id = '770e8400-e29b-41d4-a716-446655440001' ORDER BY created_at DESC LIMIT 2;
-
--- ═══ VERIFICACIÓN 6: Probar SP sp_infrastructure_report ═══
-SELECT '=== PRUEBA SP: sp_infrastructure_report ===' AS info;
-CALL sp_infrastructure_report('550e8400-e29b-41d4-a716-446655440000');
-
--- ═══ VERIFICACIÓN 7: Verificar que el TRIGGER de auditoría registró cambios ═══
-SELECT '=== PRUEBA TRIGGER: Registros automáticos en audit_logs ===' AS info;
-SELECT action, resource_type, resource_name, status, timestamp
+-- Recent Audit Events View
+CREATE VIEW recent_audit_events AS
+SELECT organization_id, user_id, action, resource_type, status, timestamp
 FROM audit_logs
-ORDER BY timestamp DESC
-LIMIT 10;
+WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+ORDER BY timestamp DESC;
 
--- ═══ VERIFICACIÓN 8: Probar la TRANSACCIÓN sp_suspend_organization ═══
--- Primero crear una org temporal para suspenderla
-INSERT INTO organizations (id, name, industry, status) VALUES
-('999e8400-e29b-41d4-a716-446655440099', 'Empresa Test Suspender', 'Pruebas', 'active');
+-- ==================================================================================
+-- Safe index recreation to avoid duplicate index errors
+-- ==================================================================================
 
-INSERT INTO users (id, organization_id, email, password_hash, full_name, role, status) VALUES
-('669e8400-e29b-41d4-a716-446655440099', '999e8400-e29b-41d4-a716-446655440099',
- 'test@test.com', '$2b$12$TestHashLargoSuficienteParaPassTest123456789',
- 'Usuario Test', 'admin', 'active');
+DROP INDEX IF EXISTS idx_metrics_server_time ON metrics;
+CREATE INDEX idx_metrics_server_time ON metrics(server_id, timestamp DESC);
 
-SELECT '=== ANTES DE SUSPENDER ===' AS info;
-SELECT id, name, status FROM organizations WHERE id = '999e8400-e29b-41d4-a716-446655440099';
-SELECT id, full_name, status FROM users WHERE organization_id = '999e8400-e29b-41d4-a716-446655440099';
+DROP INDEX IF EXISTS idx_alerts_org_status_time ON alerts;
+CREATE INDEX idx_alerts_org_status_time ON alerts(organization_id, status, created_at DESC);
 
-SELECT '=== EJECUTANDO TRANSACCIÓN: sp_suspend_organization ===' AS info;
-CALL sp_suspend_organization('999e8400-e29b-41d4-a716-446655440099', 'Prueba de suspensión para demo');
+DROP INDEX IF EXISTS idx_threats_org_sev_time ON security_threats;
+CREATE INDEX idx_threats_org_sev_time ON security_threats(organization_id, severity, detected_at DESC);
 
-SELECT '=== DESPUÉS DE SUSPENDER ===' AS info;
-SELECT id, name, status FROM organizations WHERE id = '999e8400-e29b-41d4-a716-446655440099';
-SELECT id, full_name, status FROM users WHERE organization_id = '999e8400-e29b-41d4-a716-446655440099';
+DROP INDEX IF EXISTS idx_audit_org_user_time ON audit_logs;
+CREATE INDEX idx_audit_org_user_time ON audit_logs(organization_id, user_id, timestamp DESC);
 
--- Ver el registro de auditoría de la suspensión
-SELECT action, resource_type, resource_name, status, changes
-FROM audit_logs
-WHERE action = 'SUSPEND'
-ORDER BY timestamp DESC
-LIMIT 1;
+DROP INDEX IF EXISTS idx_servers_org_status ON servers;
+CREATE INDEX idx_servers_org_status ON servers(organization_id, status);
+-- ==================================================================================
+-- STORED PROCEDURES
+-- ==================================================================================
 
-SELECT '=== ✅ TODAS LAS VERIFICACIONES COMPLETADAS ===' AS info;
+DELIMITER //
+
+-- Procedure to calculate server status based on metrics
+CREATE PROCEDURE update_server_status(IN server_uuid CHAR(36))
+BEGIN
+  DECLARE cpu_val DECIMAL(5,2);
+  DECLARE ram_val DECIMAL(5,2);
+  DECLARE new_status VARCHAR(20);
+
+  -- Get latest metrics
+  SELECT cpu_usage, ram_usage INTO cpu_val, ram_val
+  FROM metrics
+  WHERE server_id = server_uuid
+  ORDER BY timestamp DESC
+  LIMIT 1;
+
+  -- Determine status
+  IF cpu_val IS NULL THEN
+    SET new_status = 'offline';
+  ELSEIF cpu_val >= 90 OR ram_val >= 90 THEN
+    SET new_status = 'critical';
+  ELSEIF cpu_val >= 75 OR ram_val >= 75 THEN
+    SET new_status = 'warning';
+  ELSE
+    SET new_status = 'healthy';
+  END IF;
+
+  -- Update server
+  UPDATE servers SET status = new_status WHERE id = server_uuid;
+END //
+
+-- Procedure to cleanup old data
+CREATE PROCEDURE cleanup_old_data(IN days_to_keep INT)
+BEGIN
+  -- Delete old metrics (keep 90 days by default)
+  DELETE FROM metrics
+  WHERE timestamp < DATE_SUB(NOW(), INTERVAL days_to_keep DAY);
+
+  -- Delete old security events (keep 30 days)
+  DELETE FROM security_events
+  WHERE timestamp < DATE_SUB(NOW(), INTERVAL 30 DAY);
+
+  -- Delete old notifications (keep 7 days)
+  DELETE FROM notifications
+  WHERE created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
+  AND is_read = TRUE;
+END //
+
+DELIMITER ;
+
+-- ==================================================================================
+-- INITIAL DATA
+-- ==================================================================================
+
+-- Insert sample organization
+INSERT INTO organizations (id, name, industry, company_size, subscription_tier, api_key, status)
+VALUES ('550e8400-e29b-41d4-a716-446655440000', 'HawkScope Demo', 'Technology', 'large', 'pro', 'sk_demo_1234567890', 'active');
+
+-- Insert sample users
+INSERT INTO users (id, organization_id, email, password_hash, full_name, role, status, created_at)
+VALUES
+  ('660e8400-e29b-41d4-a716-446655440001',
+ '550e8400-e29b-41d4-a716-446655440000',
+ 'admin@hawkscope.io',
+ '$2b$12$LJ3m5Rs1GK0sR1KhMer0F.YnxHzA3vH3hR3x3qA8X1v5R8nB3gD5w',
+ 'Admin User', 'admin', 'active', NOW()),
+
+ ('660e8400-e29b-41d4-a716-446655440002',
+ '550e8400-e29b-41d4-a716-446655440000',
+ 'operator@hawkscope.io',
+ '$2b$12$PQ7k5Ws3HN2tT3YjQer1G.k4xI4iS4z4rB9Y2w6S9oC4hE6xT8z3M',
+ 'Operator User', 'operator', 'active', NOW()),
+
+ ('660e8400-e29b-41d4-a716-446655440003',
+ '550e8400-e29b-41d4-a716-446655440000',
+ 'viewer@hawkscope.io','$2b$12$MN4h2Vp0EL9qQ0VgNdr8D.g1uF1fP1w1oY6V9t3P6lZ1eB3uQ5w0J',
+ 'Viewer User', 'viewer', 'active', NOW());
+
+-- Insert sample servers
+INSERT INTO servers (id, organization_id, hostname, ip_address, ip_internal, os_name, os_version, region, status, agent_version)
+VALUES
+  ('770e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', 'prod-api-01', '203.0.113.10', '10.0.1.10', 'Ubuntu', '22.04', 'us-east-1', 'healthy', '1.0.0'),
+  ('770e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440000', 'prod-api-02', '203.0.113.11', '10.0.1.11', 'Ubuntu', '22.04', 'us-east-1', 'healthy', '1.0.0'),
+  ('770e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000', 'db-primary', '203.0.113.20', '10.0.3.10', 'Ubuntu', '22.04', 'us-east-1', 'healthy', '1.0.0');
+
+-- ==================================================================================
+-- GRANTS AND SECURITY
+-- ==================================================================================
+
+-- Create application user (should have limited permissions)
+-- CREATE USER 'app_user'@'localhost' IDENTIFIED BY 'secure_password';
+-- GRANT SELECT, INSERT, UPDATE ON hawkscope_db.* TO 'app_user'@'localhost';
+-- CREATE USER 'app_read'@'localhost' IDENTIFIED BY 'secure_password';
+-- GRANT SELECT ON hawkscope_db.* TO 'app_read'@'localhost';
+
+-- ==================================================================================
+-- NOTES
+-- ==================================================================================
+--
+-- 1. All IDs use UUID (CHAR(36)) for multi-tenant safety and scalability
+-- 2. All timestamps are UTC (TIMESTAMP uses system timezone, convert in application)
+-- 3. Organizations are completely isolated - no queries should cross org boundaries
+-- 4. Soft deletes (deleted_at) are used to preserve data while hiding it
+-- 5. Indexes are crucial for performance - review based on actual usage patterns
+-- 6. Consider partitioning metrics table by month for very high volume
+-- 7. Implement data retention policies based on subscription tier
+-- 8. Use prepared statements in application code to prevent SQL injection
+-- 9. Enable query logging and monitoring for production systems
+-- 10. Regular backups are essential - test recovery procedures
+--
+-- ==================================================================================
+
+
