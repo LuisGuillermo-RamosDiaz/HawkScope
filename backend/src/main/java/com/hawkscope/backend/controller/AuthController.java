@@ -1,6 +1,7 @@
 package com.hawkscope.backend.controller;
 
 import com.hawkscope.backend.dto.LoginRequestDto;
+import com.hawkscope.backend.dto.RegisterRequestDto;
 import com.hawkscope.backend.service.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,15 @@ public class AuthController {
         return authService.authenticate(request)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody RegisterRequestDto request) {
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
+        }
     }
 
     @GetMapping("/verify")
