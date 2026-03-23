@@ -40,7 +40,7 @@ __version__ = "2.1.0"
 # ---------------------------------------------------------------------------
 _BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 _LOG_DIR     = os.path.join(_BASE_DIR, "logs")
-_BUFFER_FILE = os.path.join(_BASE_DIR, "buffer.jsonl")
+_BUFFER_FILE = os.path.join(_LOG_DIR, "buffer.jsonl")
 
 os.makedirs(_LOG_DIR, exist_ok=True)
 
