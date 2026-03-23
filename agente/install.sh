@@ -47,6 +47,9 @@ PYTHON_MIN_MAJOR=3
 PYTHON_MIN_MINOR=9
 UPDATE_MODE=false
 
+# URL del backend (Endpoint de métricas)
+BACKEND_URL="https://hawkscope-backend.onrender.com/api/v1/agent/metrics"
+
 # URL base desde donde se descargan monitor.py y requirements.txt.
 # Esta URL es la fuente canónica para el modo de distribución remota
 # (one-liner: curl .../install.sh | sudo bash).
@@ -61,15 +64,25 @@ AGENT_FILES_URL="https://raw.githubusercontent.com/LuisGuillermo-RamosDiaz/HawkS
 # ---------------------------------------------------------------------------
 # Parseo de argumentos
 # ---------------------------------------------------------------------------
-for arg in "$@"; do
-  case "$arg" in
+ARG_API_KEY=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
     --update|-u) UPDATE_MODE=true ;;
+    --api-key=*) ARG_API_KEY="${1#*=}" ;;
+    --api-key)
+      if [[ -n "${2:-}" ]]; then
+        ARG_API_KEY="$2"
+        shift
+      fi
+      ;;
     --help|-h)
-      echo "Uso: sudo bash install.sh [--update]"
-      echo "  --update  Reinstala el agente sobre una instalación existente"
+      echo "Uso: sudo bash install.sh [--update] [--api-key <KEY>]"
+      echo "  --update         Reinstala el agente sobre una instalación existente"
+      echo "  --api-key <KEY>  API key de la organización (omite el prompt interactivo)"
       exit 0
       ;;
   esac
+  shift
 done
 
 # ---------------------------------------------------------------------------
@@ -296,44 +309,42 @@ configure_env() {
   fi
 
   banner "Configuración del Agente"
-  echo -e "  Necesitas dos datos que se encuentran en la sección ${BOLD}/setup${NC} de tu cuenta HawkScope:\n"
 
-  # --- API URL ---
-  while true; do
-    read -rp "  URL del backend HawkScope (ej: https://api.hawkscope.io/v1/agent/telemetry): " api_url
-    api_url="$(echo "$api_url" | xargs)"   # trim whitespace
-    if [[ "$api_url" =~ ^https?:// ]]; then
-      break
-    fi
-    warn "La URL debe comenzar con http:// o https://. Inténtalo de nuevo."
-  done
-
-  # --- API KEY ---
-  while true; do
-    read -rsp "  API Key de tu organización (no se mostrará): " api_key
-    echo
-    api_key="$(echo "$api_key" | xargs)"
-    if [[ ${#api_key} -ge 16 ]]; then
-      break
-    fi
-    warn "La API Key parece demasiado corta (mínimo 16 caracteres). Inténtalo de nuevo."
-  done
-
-  # --- Intervalo opcional ---
-  read -rp "  Intervalo de envío en segundos [10]: " send_interval
-  send_interval="${send_interval:-10}"
-  if ! [[ "$send_interval" =~ ^[0-9]+$ ]] || [[ "$send_interval" -lt 5 ]]; then
-    warn "Intervalo inválido; se usará 10s."
-    send_interval=10
+  # Si la API Key viene como argumento (--api-key), usarla directamente
+  if [[ -n "${ARG_API_KEY:-}" ]]; then
+    api_key="$ARG_API_KEY"
+    info "API Key recibida por parámetro (--api-key)."
+  else
+    # Pedirla interactivamente solo si no viene por argumento
+    echo -e "  Necesitas la API Key que aparece en la sección ${BOLD}/setup${NC} de tu cuenta HawkScope:\n"
+    while true; do
+      read -rsp "  API Key de tu organización (no se mostrará): " api_key
+      echo
+      api_key="$(echo "$api_key" | xargs)"
+      if [[ ${#api_key} -ge 16 ]]; then
+        break
+      fi
+      warn "La API Key parece demasiado corta (mínimo 16 caracteres). Inténtalo de nuevo."
+    done
   fi
 
+  # --- Intervalo opcional ---
+  send_interval=10
+  if [[ -z "${ARG_API_KEY:-}" ]]; then
+    read -rp "  Intervalo de envío en segundos [10]: " input_interval
+    if [[ -n "$input_interval" ]] && [[ "$input_interval" =~ ^[0-9]+$ ]] && [[ "$input_interval" -ge 5 ]]; then
+      send_interval="$input_interval"
+    elif [[ -n "$input_interval" ]]; then
+      warn "Intervalo inválido; se usará 10s."
+    fi
+  fi
   # Escribir .env
   cat > "$ENV_FILE" <<EOF
 # HawkScope Agent — Configuración
 # Generado automáticamente por install.sh el $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Para modificar: sudo nano ${ENV_FILE}
 
-API_URL=${api_url}
+API_URL=${BACKEND_URL}
 API_KEY=${api_key}
 SEND_INTERVAL=${send_interval}
 
