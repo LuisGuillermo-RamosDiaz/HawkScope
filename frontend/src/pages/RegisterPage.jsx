@@ -49,17 +49,19 @@ const RegisterPage = () => {
 
     setIsLoading(true)
     try {
-      await authService.register({
+      const result = await authService.register({
         email: form.email,
         password: form.password,
         companyName: form.companyName,
         industry: form.industry,
         companySize: form.companySize,
       })
-      navigate('/login')
+      // Auto-login: store token + user, redirect to dashboard
+      login(result.token, result.user)
+      navigate('/dashboard')
     } catch (error) {
-      if (error.response?.status === 404) {
-        setError('El registro automático estará disponible próximamente. Contacta al administrador para crear tu cuenta.')
+      if (error.response?.status === 409) {
+        setError('Este email ya está registrado. Intenta iniciar sesión.')
       } else {
         setError(error.response?.data?.message || 'Error al registrar. Intenta de nuevo.')
       }
