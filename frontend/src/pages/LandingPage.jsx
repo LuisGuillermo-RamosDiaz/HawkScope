@@ -20,7 +20,7 @@ const stagger = {
 
 const LandingPage = () => {
   const { t } = useTranslation()
-  const [billingCycle, setBillingCycle] = useState('monthly')
+  const [billingCycle, setBillingCycle] = useState('annual')
 
   const features = [
     { icon: 'shield', title: 'Deteccion de Amenazas', desc: 'IA avanzada que identifica y neutraliza amenazas en milisegundos antes de que impacten tu infraestructura.' },
@@ -40,8 +40,8 @@ const LandingPage = () => {
   const plans = [
     {
       name: 'Starter',
-      price: billingCycle === 'monthly' ? '0' : '0',
-      period: billingCycle === 'monthly' ? '/mes' : '/año',
+      price: '0',
+      period: '/mes',
       desc: 'Para equipos pequenos que inician',
       features: ['5 servidores', '1 usuario', 'Dashboard basico', 'Alertas email', 'Retencion 7 dias'],
       cta: 'Comenzar Gratis',
@@ -49,8 +49,9 @@ const LandingPage = () => {
     },
     {
       name: 'Pro',
-      price: billingCycle === 'monthly' ? '49' : '470',
-      period: billingCycle === 'monthly' ? '/mes' : '/año',
+      price: billingCycle === 'monthly' ? '49' : '29',
+      period: '/mes',
+      annualTotal: '348',
       desc: 'Para equipos en crecimiento',
       features: ['50 servidores', '10 usuarios', 'Dashboard completo', 'Alertas multi-canal', 'Retencion 90 dias', 'API access', 'Roles RBAC'],
       cta: 'Iniciar Prueba Gratis',
@@ -69,12 +70,6 @@ const LandingPage = () => {
 
 
 
-  const stats = [
-    { value: '99.99%', label: 'Uptime Garantizado' },
-    { value: '<200ms', label: 'Tiempo de Respuesta' },
-    { value: '10K+', label: 'Servidores Monitoreados' },
-    { value: '50M+', label: 'Amenazas Bloqueadas' },
-  ]
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-surface-base)' }}>
@@ -182,17 +177,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ========== STATS ========== */}
-      <section className="py-16 px-6 border-y border-white/[0.04]">
-        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
-          {stats.map((stat, i) => (
-            <motion.div key={stat.label} className="text-center" {...stagger} transition={{ delay: i * 0.1, duration: 0.5 }}>
-              <p className="text-3xl md:text-4xl font-bold text-gradient-cyan mb-1">{stat.value}</p>
-              <p className="text-xs text-text-muted">{stat.label}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
 
       {/* ========== FEATURES ========== */}
       <section id="features" className="py-20 px-6">
@@ -261,7 +245,7 @@ const LandingPage = () => {
                   className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${billingCycle === cycle ? 'bg-accent-cyan/10 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
                     }`}
                 >
-                  {cycle === 'monthly' ? 'Mensual' : 'Anual (-20%)'}
+                  {cycle === 'monthly' ? 'Mensual' : 'Anual (-40%)'}
                 </button>
               ))}
             </div>
@@ -276,16 +260,23 @@ const LandingPage = () => {
                 transition={{ delay: i * 0.1, duration: 0.5 }}
               >
                 {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-accent-cyan/10 border border-accent-cyan/20 text-[9px] text-accent-cyan font-medium uppercase tracking-wider">
+                  <div className="absolute -top-5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-accent-cyan/10 border border-accent-cyan/20 text-[9px] text-accent-cyan font-medium uppercase tracking-wider">
                     Popular
                   </div>
                 )}
                 <h3 className="text-lg font-bold text-text-primary mb-1">{plan.name}</h3>
                 <p className="text-[10px] text-text-muted mb-4">{plan.desc}</p>
-                <div className="flex items-baseline gap-1 mb-5">
-                  {plan.price !== 'Custom' && <span className="text-xs text-text-muted">$</span>}
-                  <span className="text-3xl font-bold text-text-primary">{plan.price}</span>
-                  <span className="text-xs text-text-muted">{plan.period}</span>
+                <div className="mb-5">
+                  <div className="flex items-baseline gap-1">
+                    {plan.price !== 'Custom' && <span className="text-xs text-text-muted">$</span>}
+                    <span className="text-3xl font-bold text-text-primary">{plan.price}</span>
+                    <span className="text-xs text-text-muted">{plan.period}</span>
+                  </div>
+                  {billingCycle === 'annual' && plan.annualTotal && (
+                    <div className="text-[10px] text-accent-cyan/80 mt-1 font-medium italic">
+                      Facturado anualmente: ${plan.annualTotal}
+                    </div>
+                  )}
                 </div>
                 <ul className="space-y-2.5 mb-6">
                   {plan.features.map(f => (
