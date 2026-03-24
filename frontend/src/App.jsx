@@ -15,6 +15,7 @@ const AuditPage = lazy(() => import('./pages/AuditPage'))
 const SecurityPage = lazy(() => import('./pages/SecurityPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const UsersPage = lazy(() => import('./pages/UsersPage'))
+const AcceptInvitePage = lazy(() => import('./pages/AcceptInvitePage'))
 
 const ProtectedLayout = ({ children, allowedRoles }) => (
   <ProtectedRoute allowedRoles={allowedRoles}>
@@ -43,6 +44,11 @@ function App() {
       <Route path="/register" element={
         <Suspense fallback={<PageLoader fullScreen />}>
           <RegisterPage />
+        </Suspense>
+      } />
+      <Route path="/invite/:token" element={
+        <Suspense fallback={<PageLoader fullScreen />}>
+          <AcceptInvitePage />
         </Suspense>
       } />
 

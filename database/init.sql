@@ -41,9 +41,7 @@ CREATE TABLE users (
   organization_id CHAR(36) NOT NULL,
   email VARCHAR(255) NOT NULL COMMENT 'Unique per organization',
   password_hash VARCHAR(255) NOT NULL COMMENT 'bcrypt hashed password',
-  first_name VARCHAR(100),
-  last_name VARCHAR(100),
-  full_name VARCHAR(255) COMMENT 'Denormalized for faster queries',
+  full_name VARCHAR(255) NOT NULL,
   role ENUM('admin', 'operator', 'viewer') DEFAULT 'viewer' COMMENT 'RBAC role',
   status ENUM('active', 'inactive', 'invited', 'pending_activation') DEFAULT 'invited',
 
@@ -171,7 +169,7 @@ CREATE TABLE servers (
 CREATE TABLE metrics (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   server_id CHAR(36) NOT NULL,
-  organization_id CHAR(36) NOT NULL COMMENT 'Denormalized for faster queries',
+  organization_id CHAR(36) NULL COMMENT 'Denormalized for faster queries',
 
   -- Resource metrics
   cpu_usage DECIMAL(5,2) NOT NULL COMMENT 'CPU percentage 0-100',

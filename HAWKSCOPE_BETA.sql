@@ -50,7 +50,7 @@ CREATE TABLE users (
   organization_id CHAR(36) NOT NULL,
   email VARCHAR(255) NOT NULL COMMENT 'Único por organización',
   password_hash VARCHAR(255) NOT NULL COMMENT 'Hash bcrypt',
-  full_name VARCHAR(255),
+  full_name VARCHAR(255) NOT NULL,
   role ENUM('admin', 'operator', 'viewer') DEFAULT 'viewer' COMMENT 'Rol RBAC',
   status ENUM('active', 'inactive', 'invited') DEFAULT 'invited',
   last_login_at TIMESTAMP NULL,
@@ -122,7 +122,7 @@ CREATE TABLE servers (
 CREATE TABLE metrics (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   server_id CHAR(36) NOT NULL,
-  organization_id CHAR(36) NOT NULL COMMENT 'Desnormalizado para consultas rápidas',
+  organization_id CHAR(36) NULL COMMENT 'Desnormalizado para consultas rápidas',
   cpu_usage DECIMAL(5,2) NOT NULL,
   ram_usage DECIMAL(5,2) NOT NULL,
   disk_usage DECIMAL(5,2) NOT NULL,

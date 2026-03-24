@@ -63,7 +63,9 @@ const RegisterPage = () => {
       login({
         token: result.token,
         email: result.user.email,
-        role: result.user.role
+        role: result.user.role,
+        apiKey: result.user.apiKey,
+        name: result.user.name
       })
       navigate('/dashboard')
     } catch (error) {

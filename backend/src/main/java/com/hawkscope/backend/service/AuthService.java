@@ -24,28 +24,30 @@ public class AuthService {
     private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
     private final JwtService jwtService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
-    public AuthService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService) {
+    public AuthService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService, org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
         this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public Optional<LoginResponseDto> authenticate(LoginRequestDto request) {
         return userRepository.findByEmail(request.email())
-                .filter(user -> user.getPasswordHash().equals(request.password()))
+                .filter(user -> passwordEncoder.matches(request.password(), user.getPasswordHash()))
                 .map(user -> {
                     String token = jwtService.generateToken(
                         user.getEmail(),
                         user.getRole(),
                         user.getOrganization().getId().toString()
                     );
-                    
                     UserInfoDto userInfo = new UserInfoDto(
                         user.getId().toString(),
                         user.getEmail(),
                         user.getRole(),
-                        user.getFullName()
+                        user.getFullName(),
+                        user.getOrganization().getApiKey()
                     );
                     return new LoginResponseDto(token, userInfo);
                 });
@@ -70,25 +72,66 @@ public class AuthService {
         // Create admin User
         User user = new User();
         user.setEmail(request.email());
-        user.setPasswordHash(request.password());  // stored as-is, same as existing login comparison
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setFullName(request.fullName());
         user.setRole("admin");
         user.setOrganization(org);
-        user = userRepository.save(user);
+        user.setStatus("active");
+        userRepository.save(user);
 
-        // Generate JWT and return response
         String token = jwtService.generateToken(
             user.getEmail(),
             user.getRole(),
-            user.getOrganization().getId().toString()
+            org.getId().toString()
         );
-        UserInfoDto userInfo = new UserInfoDto(
-            user.getId().toString(),
+
+        return new LoginResponseDto(token, new UserInfoDto(
+            user.getEmail(),
+            user.getFullName(),
+            user.getRole(),
+            org.getApiKey()
+        ));
+    }
+
+    public LoginResponseDto acceptInvite(com.hawkscope.backend.dto.AcceptInviteDto request) {
+        io.jsonwebtoken.Claims claims;
+        try {
+            claims = jwtService.parseToken(request.token());
+            if (!"invite".equals(claims.get("type", String.class))) {
+                throw new RuntimeException("Invalid token type");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid or expired invite link");
+        }
+
+        String email = claims.getSubject();
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!"invited".equals(user.getStatus())) {
+            throw new RuntimeException("User invite already accepted or revoked");
+        }
+
+        // Apply new password
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setStatus("active");
+        userRepository.save(user);
+
+        Organization org = user.getOrganization();
+
+        // Generate final login token
+        String token = jwtService.generateToken(
             user.getEmail(),
             user.getRole(),
-            user.getFullName()
+            org.getId().toString()
         );
-        return new LoginResponseDto(token, userInfo);
+
+        return new LoginResponseDto(token, new UserInfoDto(
+            user.getEmail(),
+            user.getFullName(),
+            user.getRole(),
+            org.getApiKey()
+        ));
     }
 
     public boolean isTokenValid(String token) {

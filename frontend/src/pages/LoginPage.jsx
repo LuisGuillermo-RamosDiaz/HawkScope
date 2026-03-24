@@ -53,6 +53,8 @@ const LoginPage = () => {
         email: response.user.email,
         role: response.user.role,
         token: response.token,
+        apiKey: response.user.apiKey,
+        name: response.user.name
       })
 
       console.log('Estado guardado. Esperando persistencia...')
@@ -96,7 +98,7 @@ const LoginPage = () => {
           const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
           const payloadStr = btoa(JSON.stringify(payload))
           resolve({
-            user: { email: 'admin@devsecops.com', role: 'admin' },
+            user: { email: 'admin@devsecops.com', role: 'admin', apiKey: 'sk_test_demo123456789', name: 'Admin Demo' },
             token: `${header}.${payloadStr}.mock-signature`,
           })
         } else {

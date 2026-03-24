@@ -3,7 +3,9 @@ package com.hawkscope.backend.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record AgentSecurityDto(
     @JsonProperty("active_connections") List<Map<String, Object>> activeConnections,
     @JsonProperty("logged_users")       List<String> loggedUsers

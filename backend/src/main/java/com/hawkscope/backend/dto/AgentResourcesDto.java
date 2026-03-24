@@ -1,7 +1,9 @@
 package com.hawkscope.backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record AgentResourcesDto(
     @JsonProperty("cpu_usage")     Double cpuUsage,
     @JsonProperty("ram_usage")     Double ramUsage,

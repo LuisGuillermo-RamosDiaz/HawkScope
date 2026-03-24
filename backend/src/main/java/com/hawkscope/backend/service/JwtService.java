@@ -32,6 +32,19 @@ public class JwtService {
                 .compact();
     }
 
+    public String generateInviteToken(String email, String role, String orgId) {
+        return Jwts.builder()
+                .subject(email)
+                .claim("email", email)
+                .claim("role", role)
+                .claim("org_id", orgId)
+                .claim("type", "invite")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000)) // 7 days
+                .signWith(getKey())
+                .compact();
+    }
+
     public Claims parseToken(String token) {
         return Jwts.parser()
                 .verifyWith(getKey())

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import GlassCard from '../components/GlassCard'
@@ -7,14 +7,7 @@ import StatusBadge from '../components/StatusBadge'
 import useAuthStore from '../store/authStore'
 import { useToast } from '../hooks/useToast'
 import { StaggerContainer, StaggerItem } from '../components/animations/StaggerContainer'
-
-const mockUsers = [
-  { id: 1, name: 'Admin Principal', email: 'admin@devsecops.com', role: 'admin', status: 'active', lastAccess: '2024-03-11 14:32' },
-  { id: 2, name: 'Carlos Operador', email: 'operator@devsecops.com', role: 'operator', status: 'active', lastAccess: '2024-03-11 13:15' },
-  { id: 3, name: 'Ana Viewer', email: 'viewer@devsecops.com', role: 'viewer', status: 'active', lastAccess: '2024-03-10 18:45' },
-  { id: 4, name: 'Miguel SOC', email: 'miguel@devsecops.com', role: 'operator', status: 'inactive', lastAccess: '2024-03-05 09:20' },
-  { id: 5, name: 'Invitado Nuevo', email: 'nuevo@empresa.com', role: 'viewer', status: 'invited', lastAccess: '-' },
-]
+import usersService from '../services/usersService'
 
 const roleColors = {
   admin: 'text-accent-cyan bg-accent-cyan/8 border-accent-cyan/15',
@@ -31,46 +24,78 @@ const statusMap = {
 const UsersPage = () => {
   const { t } = useTranslation()
   const { user } = useAuthStore()
-  const { showSuccess } = useToast()
-  const [users, setUsers] = useState(mockUsers)
+  const { showSuccess, showError } = useToast()
+  
+  const [users, setUsers] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(null)
-  const [editingUser, setEditingUser] = useState(null)
+  
   const [form, setForm] = useState({ name: '', email: '', role: 'viewer' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [inviteLink, setInviteLink] = useState('')
+
+  const fetchUsers = async () => {
+    try {
+      const data = await usersService.getUsers()
+      setUsers(data)
+    } catch (error) {
+      showError('Error al cargar usuarios')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
 
   const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
 
   const openCreate = () => {
-    setEditingUser(null)
     setForm({ name: '', email: '', role: 'viewer' })
+    setInviteLink('')
     setShowModal(true)
   }
 
-  const openEdit = (u) => {
-    setEditingUser(u)
-    setForm({ name: u.name, email: u.email, role: u.role })
-    setShowModal(true)
-  }
-
-  const handleSave = () => {
-    if (editingUser) {
-      setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, name: form.name, email: form.email, role: form.role } : u))
-    } else {
-      setUsers(prev => [...prev, { id: Date.now(), name: form.name, email: form.email, role: form.role, status: 'invited', lastAccess: '-' }])
+  const handleInvite = async () => {
+    setIsSubmitting(true)
+    try {
+      const result = await usersService.inviteUser({
+        name: form.name,
+        email: form.email,
+        role: form.role
+      })
+      
+      const generatedLink = `${window.location.origin}/invite/${result.inviteToken}`
+      setInviteLink(generatedLink)
+      navigator.clipboard.writeText(generatedLink)
+      
+      showSuccess('Usuario invitado. Enlace copiado al portapapeles.')
+      fetchUsers() // Refresh list
+    } catch (error) {
+      showError(error.response?.data?.message || 'Error al invitar usuario')
+    } finally {
+      setIsSubmitting(false)
     }
-    setShowModal(false)
-    showSuccess(editingUser ? 'Usuario actualizado' : 'Usuario creado')
   }
 
-  const handleDelete = (id) => {
-    setUsers(prev => prev.filter(u => u.id !== id))
-    setShowDeleteModal(null)
-    showSuccess('Usuario eliminado')
+  const handleDelete = async (id) => {
+    try {
+      await usersService.deleteUser(id)
+      setUsers(prev => prev.filter(u => u.id !== id))
+      setShowDeleteModal(null)
+      showSuccess('Usuario eliminado')
+    } catch (error) {
+      showError('Error al eliminar usuario')
+    }
   }
 
-  const handleInviteLink = () => {
-    navigator.clipboard.writeText(`https://app.hawkscope.io/invite/${btoa(Date.now().toString()).slice(0, 12)}`)
-    showSuccess(t('users.linkGenerated'))
+  const copyLink = () => {
+    if (inviteLink) {
+      navigator.clipboard.writeText(inviteLink)
+      showSuccess('Enlace copiado al portapapeles')
+    }
   }
 
   const isAdmin = user?.role === 'admin'
@@ -85,10 +110,6 @@ const UsersPage = () => {
           </div>
           {isAdmin && (
             <div className="flex items-center gap-2">
-              <button onClick={handleInviteLink} className="btn-secondary flex items-center gap-2 text-xs px-3 py-1.5">
-                <Icon name="link" size={13} />
-                <span>{t('users.inviteLink')}</span>
-              </button>
               <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-xs px-3 py-1.5">
                 <Icon name="plus" size={13} />
                 <span>{t('users.addUser')}</span>
@@ -101,7 +122,10 @@ const UsersPage = () => {
       {/* Users Table */}
       <StaggerItem>
         <GlassCard padding="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto min-h-[200px]">
+            {isLoading ? (
+               <div className="p-8 text-center text-text-muted text-xs">Cargando usuarios...</div>
+            ) : (
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/[0.06]">
@@ -121,22 +145,22 @@ const UsersPage = () => {
                   >
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-accent-purple/10 border border-white/[0.06] flex items-center justify-center text-[10px] font-bold text-accent-cyan">
-                          {u.name.charAt(0)}
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-accent-purple/10 border border-white/[0.06] flex items-center justify-center text-[10px] font-bold text-accent-cyan uppercase">
+                          {u.fullName?.charAt(0) || u.email?.charAt(0)}
                         </div>
-                        <span className="text-xs text-text-primary font-medium">{u.name}</span>
+                        <span className="text-xs text-text-primary font-medium">{u.fullName || 'Usuario'}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3 text-[11px] text-text-secondary font-mono">{u.email}</td>
                     <td className="px-5 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${roleColors[u.role]}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${roleColors[u.role] || roleColors.viewer}`}>
                         {u.role === 'admin' ? t('users.admin') : u.role === 'operator' ? t('users.operator') : t('users.viewer')}
                       </span>
                     </td>
                     <td className="px-5 py-3">
                       <StatusBadge
                         status={statusMap[u.status]?.status || 'warning'}
-                        label={u.status === 'active' ? t('users.active') : u.status === 'inactive' ? t('users.inactive') : t('users.invited')}
+                        label={u.status === 'active' ? t('users.active') : u.status === 'inactive' ? t('users.inactive') : u.status === 'invited' ? t('users.invited') : u.status}
                         size="xs"
                       />
                     </td>
@@ -144,9 +168,6 @@ const UsersPage = () => {
                     <td className="px-5 py-3">
                       {isAdmin && u.email !== user?.email && (
                         <div className="flex items-center gap-1">
-                          <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg text-text-muted hover:text-accent-cyan hover:bg-accent-cyan/5 transition-all">
-                            <Icon name="edit" size={13} />
-                          </button>
                           <button onClick={() => setShowDeleteModal(u.id)} className="p-1.5 rounded-lg text-text-muted hover:text-status-critical hover:bg-status-critical/5 transition-all">
                             <Icon name="trash-2" size={13} />
                           </button>
@@ -157,15 +178,16 @@ const UsersPage = () => {
                 ))}
               </tbody>
             </table>
+            )}
           </div>
         </GlassCard>
       </StaggerItem>
 
-      {/* Create/Edit Modal */}
+      {/* Create Modal */}
       <AnimatePresence>
         {showModal && (
           <>
-            <motion.div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowModal(false)} />
+            <motion.div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => !isSubmitting && setShowModal(false)} />
             <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <motion.div
                 className="glass-card w-full max-w-sm p-6"
@@ -174,33 +196,57 @@ const UsersPage = () => {
                 onClick={e => e.stopPropagation()}
               >
                 <h3 className="text-base font-bold text-text-primary mb-4">
-                  {editingUser ? t('users.editUser') : t('users.createUser')}
+                  Invitar al Equipo
                 </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.name')}</label>
-                    <input name="name" value={form.name} onChange={handleChange} className="input-field text-xs" placeholder="Nombre completo" />
+                
+                {!inviteLink ? (
+                  <>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.name')}</label>
+                      <input name="name" value={form.name} onChange={handleChange} className="input-field text-xs" placeholder="Nombre completo" disabled={isSubmitting} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.email')}</label>
+                      <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field text-xs" placeholder="email@empresa.com" disabled={isSubmitting} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.role')}</label>
+                      <select name="role" value={form.role} onChange={handleChange} className="input-field text-xs py-2.5" disabled={isSubmitting}>
+                        <option value="admin">{t('users.admin')}</option>
+                        <option value="operator">{t('users.operator')}</option>
+                        <option value="viewer">{t('users.viewer')}</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.email')}</label>
-                    <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field text-xs" placeholder="email@empresa.com" />
+                  <div className="flex gap-3 mt-5">
+                    <button disabled={isSubmitting} onClick={() => setShowModal(false)} className="btn-secondary flex-1 text-sm py-2">{t('common.cancel')}</button>
+                    <button disabled={isSubmitting || !form.name || !form.email} onClick={handleInvite} className="btn-primary flex-1 text-sm py-2 flex items-center justify-center gap-1.5">
+                      <Icon name={isSubmitting ? "loader" : "send"} size={13} className={isSubmitting ? "animate-spin" : ""} />
+                      Invitar
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.role')}</label>
-                    <select name="role" value={form.role} onChange={handleChange} className="input-field text-xs py-2.5">
-                      <option value="admin">{t('users.admin')}</option>
-                      <option value="operator">{t('users.operator')}</option>
-                      <option value="viewer">{t('users.viewer')}</option>
-                    </select>
+                  </>
+                ) : (
+                  <div className="text-center">
+                    <div className="w-12 h-12 mx-auto bg-status-healthy/10 text-status-healthy rounded-full flex items-center justify-center mb-3">
+                      <Icon name="check" size={24} />
+                    </div>
+                    <p className="text-sm text-text-primary mb-2">¡Invitación generada!</p>
+                    <p className="text-xs text-text-secondary mb-4">Envía este enlace seguro a tu compañero para que elija su contraseña.</p>
+                    
+                    <div className="flex items-center gap-2 bg-black/40 p-2 rounded border border-white/10 mb-5">
+                      <input type="text" readOnly value={inviteLink} className="bg-transparent text-[10px] text-text-muted w-full outline-none" />
+                      <button onClick={copyLink} className="p-1.5 bg-white/5 hover:bg-white/10 rounded text-accent-cyan transition-colors">
+                        <Icon name="copy" size={14} />
+                      </button>
+                    </div>
+                    
+                    <button onClick={() => setShowModal(false)} className="btn-primary w-full text-sm py-2">
+                      Cerrar
+                    </button>
                   </div>
-                </div>
-                <div className="flex gap-3 mt-5">
-                  <button onClick={() => setShowModal(false)} className="btn-secondary flex-1 text-sm py-2">{t('common.cancel')}</button>
-                  <button onClick={handleSave} className="btn-primary flex-1 text-sm py-2 flex items-center justify-center gap-1.5">
-                    <Icon name="check" size={13} />
-                    {t('common.save')}
-                  </button>
-                </div>
+                )}
               </motion.div>
             </motion.div>
           </>
