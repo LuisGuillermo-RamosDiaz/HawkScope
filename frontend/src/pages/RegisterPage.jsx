@@ -180,64 +180,58 @@ const RegisterPage = () => {
               </button>
             </div>
 
-             {/* Password Validations */}
-             <div className="grid grid-cols-1 gap-1.5 mt-2 bg-black/20 p-3 rounded-lg border border-white/5">
-               <p className="text-[9px] uppercase tracking-widest text-text-muted mb-1 font-bold">Requisitos de seguridad</p>
-               
-               {/* 8 characters */}
-               <div className="flex items-center gap-2">
-                 <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                   form.password.length >= 8 
-                     ? 'bg-status-healthy shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
-                     : (passwordFocused || form.password.length > 0) 
-                       ? 'bg-status-critical shadow-[0_0_8px_rgba(239,68,68,0.5)]' 
-                       : 'bg-text-muted/30'
-                 }`} />
-                 <span className={`text-[10px] transition-colors duration-300 ${
-                   form.password.length >= 8 
-                     ? 'text-status-healthy' 
-                     : (passwordFocused || form.password.length > 0) 
-                       ? 'text-status-critical opacity-90' 
-                       : 'text-text-muted'
-                 }`}>Mínimo 8 caracteres</span>
-               </div>
+            {/* Password Validations */}
+            <div className="grid grid-cols-1 gap-1.5 mt-2 bg-black/20 p-3 rounded-lg border border-white/5">
+              <p className="text-[9px] uppercase tracking-widest text-text-muted mb-1 font-bold">Requisitos de contraseña</p>
 
-               {/* Uppercase */}
-               <div className="flex items-center gap-2">
-                 <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                   /[A-Z]/.test(form.password) 
-                     ? 'bg-status-healthy shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
-                     : (passwordFocused || form.password.length > 0) 
-                       ? 'bg-status-critical shadow-[0_0_8px_rgba(239,68,68,0.5)]' 
-                       : 'bg-text-muted/30'
-                 }`} />
-                 <span className={`text-[10px] transition-colors duration-300 ${
-                   /[A-Z]/.test(form.password) 
-                     ? 'text-status-healthy' 
-                     : (passwordFocused || form.password.length > 0) 
-                       ? 'text-status-critical opacity-90' 
-                       : 'text-text-muted'
-                 }`}>Al menos una mayúscula</span>
-               </div>
+              {/* 8 characters */}
+              <div className="flex items-center gap-2">
+                <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${form.password.length >= 8
+                    ? 'bg-status-healthy shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                    : (passwordFocused || form.password.length > 0)
+                      ? 'bg-status-critical shadow-[0_0_8px_rgba(239,68,68,0.5)]'
+                      : 'bg-text-muted/30'
+                  }`} />
+                <span className={`text-[10px] transition-colors duration-300 ${form.password.length >= 8
+                    ? 'text-status-healthy'
+                    : (passwordFocused || form.password.length > 0)
+                      ? 'text-status-critical opacity-90'
+                      : 'text-text-muted'
+                  }`}>Mínimo 8 caracteres</span>
+              </div>
 
-               {/* Special character */}
-               <div className="flex items-center gap-2">
-                 <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                   /[^A-Za-z0-9]/.test(form.password) 
-                     ? 'bg-status-healthy shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
-                     : (passwordFocused || form.password.length > 0) 
-                       ? 'bg-status-critical shadow-[0_0_8px_rgba(239,68,68,0.5)]' 
-                       : 'bg-text-muted/30'
-                 }`} />
-                 <span className={`text-[10px] transition-colors duration-300 ${
-                   /[^A-Za-z0-9]/.test(form.password) 
-                     ? 'text-status-healthy' 
-                     : (passwordFocused || form.password.length > 0) 
-                       ? 'text-status-critical opacity-90' 
-                       : 'text-text-muted'
-                 }`}>Al menos un carácter especial</span>
-               </div>
-             </div>
+              {/* Uppercase */}
+              <div className="flex items-center gap-2">
+                <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${/[A-Z]/.test(form.password)
+                    ? 'bg-status-healthy shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                    : (passwordFocused || form.password.length > 0)
+                      ? 'bg-status-critical shadow-[0_0_8px_rgba(239,68,68,0.5)]'
+                      : 'bg-text-muted/30'
+                  }`} />
+                <span className={`text-[10px] transition-colors duration-300 ${/[A-Z]/.test(form.password)
+                    ? 'text-status-healthy'
+                    : (passwordFocused || form.password.length > 0)
+                      ? 'text-status-critical opacity-90'
+                      : 'text-text-muted'
+                  }`}>Al menos una mayúscula</span>
+              </div>
+
+              {/* Special character */}
+              <div className="flex items-center gap-2">
+                <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${/[^A-Za-z0-9]/.test(form.password)
+                    ? 'bg-status-healthy shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                    : (passwordFocused || form.password.length > 0)
+                      ? 'bg-status-critical shadow-[0_0_8px_rgba(239,68,68,0.5)]'
+                      : 'bg-text-muted/30'
+                  }`} />
+                <span className={`text-[10px] transition-colors duration-300 ${/[^A-Za-z0-9]/.test(form.password)
+                    ? 'text-status-healthy'
+                    : (passwordFocused || form.password.length > 0)
+                      ? 'text-status-critical opacity-90'
+                      : 'text-text-muted'
+                  }`}>Al menos un carácter especial</span>
+              </div>
+            </div>
 
             {/* Industry & Size */}
             <div className="grid grid-cols-2 gap-3">
