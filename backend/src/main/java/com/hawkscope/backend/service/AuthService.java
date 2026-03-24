@@ -45,7 +45,7 @@ public class AuthService {
                         user.getId().toString(),
                         user.getEmail(),
                         user.getRole(),
-                        user.getName()
+                        user.getFullName()
                     );
                     return new LoginResponseDto(token, userInfo);
                 });
@@ -71,7 +71,7 @@ public class AuthService {
         User user = new User();
         user.setEmail(request.email());
         user.setPasswordHash(request.password());  // stored as-is, same as existing login comparison
-        user.setName(request.fullName());
+        user.setFullName(request.fullName());
         user.setRole("admin");
         user.setOrganization(org);
         user = userRepository.save(user);
@@ -86,7 +86,7 @@ public class AuthService {
             user.getId().toString(),
             user.getEmail(),
             user.getRole(),
-            user.getName()
+            user.getFullName()
         );
         return new LoginResponseDto(token, userInfo);
     }
