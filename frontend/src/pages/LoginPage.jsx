@@ -20,8 +20,15 @@ const LoginPage = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 100)
+    
+    // Auto-fill demo if query param exists
+    const params = new URLSearchParams(location.search)
+    if (params.get('demo') === 'true') {
+      setFormData({ email: 'admin@devsecops.com', password: 'demo123!' })
+    }
+    
     return () => clearTimeout(timer)
-  }, [])
+  }, [location.search])
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -34,21 +41,30 @@ const LoginPage = () => {
     try {
       let response
       try {
+        console.log('Intentando login real...')
         response = await authService.login(formData)
       } catch (_apiError) {
-        console.warn('API no disponible, usando mock')
+        console.warn('Backend no disponible, recurriendo a MOCK login.')
         response = await mockLogin(formData)
       }
 
+      console.log('Login exitoso. Usuario:', response.user.email)
       login({
         email: response.user.email,
         role: response.user.role,
         token: response.token,
       })
 
+      console.log('Estado guardado. Esperando persistencia...')
       showSuccess('Acceso concedido - Bienvenido al SOC')
-      setTimeout(() => navigate(from, { replace: true }), 400)
+      
+      // Delay para asegurar que el storage se actualice antes de navegar
+      setTimeout(() => {
+        console.log('Navegando ahora...')
+        navigate('/dashboard', { replace: true })
+      }, 500)
     } catch (err) {
+      console.error('Error crítico en login:', err)
       if (err.response) {
         const messages = {
           401: 'Credenciales invalidas.',
@@ -70,7 +86,8 @@ const LoginPage = () => {
   const mockLogin = async (credentials) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        if (credentials.email === 'admin@devsecops.com' && credentials.password === 'nuevacontraseña') {
+        const isValidPassword = credentials.password === 'demo123!' || credentials.password === 'nuevacontraseña'
+        if (credentials.email === 'admin@devsecops.com' && isValidPassword) {
           const payload = {
             email: 'admin@devsecops.com',
             role: 'admin',
@@ -271,6 +288,30 @@ const LoginPage = () => {
                         <span>Acceder al Sistema</span>
                       </>
                     )}
+                  </button>
+                </motion.div>
+
+                {/* Demo Access Button */}
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData({ email: 'admin@devsecops.com', password: 'demo123!' })
+                      // We use a small timeout to let the state update before submit if we wanted to auto-submit,
+                      // but better to just let the user see it and click again or auto-submit now:
+                      setTimeout(() => {
+                        const form = document.querySelector('form')
+                        if (form) form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+                      }, 100)
+                    }}
+                    className="w-full flex items-center justify-center gap-2.5 py-2.5 text-[11px] font-medium text-accent-cyan border border-accent-cyan/20 rounded-lg hover:bg-accent-cyan/5 transition-all uppercase tracking-wider"
+                  >
+                    <Icon name="play" size={14} />
+                    Acceder modo Demo (Vista Rápida)
                   </button>
                 </motion.div>
               </form>

@@ -154,7 +154,7 @@ const LandingPage = () => {
               <Icon name="zap" size={16} />
               {t('landing.startFree')}
             </Link>
-            <Link to="/login" className="btn-secondary px-6 py-3 text-sm flex items-center gap-2">
+            <Link to="/login?demo=true" className="btn-secondary px-6 py-3 text-sm flex items-center gap-2">
               <Icon name="play" size={16} />
               {t('landing.viewDemo')}
             </Link>

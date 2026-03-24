@@ -43,8 +43,8 @@ const RegisterPage = () => {
       setError('Las contrasenas no coinciden')
       return
     }
-    if (form.password.length < 8) {
-      setError('La contrasena debe tener al menos 8 caracteres')
+    if (form.password.length < 8 || !/[A-Z]/.test(form.password) || !/[^A-Za-z0-9]/.test(form.password)) {
+      setError('La contrasena no cumple con todos los requisitos de seguridad')
       return
     }
 
@@ -118,7 +118,7 @@ const RegisterPage = () => {
               </label>
               <div className="relative group">
                 <input name="fullName" type="text" required value={form.fullName} onChange={handleChange}
-                  className="input-field pl-10 pr-4" placeholder="Juan Pérez" disabled={isLoading} />
+                  className="input-field pl-10 pr-4" placeholder="Ingresa tu nombre completo" disabled={isLoading} autoComplete="off" />
                 <Icon name="user" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
               </div>
             </div>
@@ -130,7 +130,7 @@ const RegisterPage = () => {
               </label>
               <div className="relative group">
                 <input name="companyName" type="text" required value={form.companyName} onChange={handleChange}
-                  className="input-field pl-10 pr-4" placeholder="Acme Security Corp" disabled={isLoading} />
+                  className="input-field pl-10 pr-4" placeholder="Nombre de tu empresa" disabled={isLoading} autoComplete="off" />
                 <Icon name="building" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
               </div>
             </div>
@@ -142,7 +142,7 @@ const RegisterPage = () => {
               </label>
               <div className="relative group">
                 <input name="email" type="email" required value={form.email} onChange={handleChange}
-                  className="input-field pl-10 pr-4" placeholder="admin@empresa.com" disabled={isLoading} />
+                  className="input-field pl-10 pr-4" placeholder="correo@ejemplo.com" disabled={isLoading} autoComplete="off" />
                 <Icon name="at-sign" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
               </div>
             </div>
@@ -155,7 +155,7 @@ const RegisterPage = () => {
                 </label>
                 <div className="relative group">
                   <input name="password" type={showPassword ? 'text' : 'password'} required value={form.password} onChange={handleChange}
-                    className="input-field pl-10 pr-4 text-xs" placeholder="Min. 8 chars" disabled={isLoading} />
+                    className="input-field pl-10 pr-4 text-xs" placeholder="Contraseña segura" disabled={isLoading} autoComplete="new-password" />
                   <Icon name="lock" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
                 </div>
               </div>
@@ -165,7 +165,7 @@ const RegisterPage = () => {
                 </label>
                 <div className="relative group">
                   <input name="confirmPassword" type={showPassword ? 'text' : 'password'} required value={form.confirmPassword} onChange={handleChange}
-                    className="input-field pl-10 pr-4 text-xs" placeholder="Confirmar" disabled={isLoading} />
+                    className="input-field pl-10 pr-4 text-xs" placeholder="Repetir contraseña" disabled={isLoading} autoComplete="new-password" />
                   <Icon name="lock" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
                 </div>
               </div>
@@ -176,6 +176,23 @@ const RegisterPage = () => {
                 <Icon name={showPassword ? 'eye-off' : 'eye'} size={12} />
                 {showPassword ? 'Ocultar' : 'Mostrar'} contrasena
               </button>
+            </div>
+
+            {/* Password Validations */}
+            <div className="grid grid-cols-1 gap-1.5 mt-2 bg-black/20 p-3 rounded-lg border border-white/5">
+              <p className="text-[9px] uppercase tracking-widest text-text-muted mb-1 font-bold">Requisitos de seguridad</p>
+              <div className="flex items-center gap-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${form.password.length >= 8 ? 'bg-status-success shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-status-critical shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
+                <span className={`text-[10px] ${form.password.length >= 8 ? 'text-status-success' : 'text-status-critical opacity-80'}`}>Mínimo 8 caracteres</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(form.password) ? 'bg-status-success shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-status-critical shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
+                <span className={`text-[10px] ${/[A-Z]/.test(form.password) ? 'text-status-success' : 'text-status-critical opacity-80'}`}>Al menos una mayúscula</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${/[^A-Za-z0-9]/.test(form.password) ? 'bg-status-success shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-status-critical shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
+                <span className={`text-[10px] ${/[^A-Za-z0-9]/.test(form.password) ? 'text-status-success' : 'text-status-critical opacity-80'}`}>Al menos un carácter especial</span>
+              </div>
             </div>
 
             {/* Industry & Size */}
