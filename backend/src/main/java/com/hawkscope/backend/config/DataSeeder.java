@@ -12,10 +12,12 @@ public class DataSeeder implements CommandLineRunner {
 
     private final OrganizationRepository orgRepo;
     private final UserRepository userRepo;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
-    public DataSeeder(OrganizationRepository orgRepo, UserRepository userRepo) {
+    public DataSeeder(OrganizationRepository orgRepo, UserRepository userRepo, org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         this.orgRepo = orgRepo;
         this.userRepo = userRepo;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -31,8 +33,8 @@ public class DataSeeder implements CommandLineRunner {
             User admin = new User();
             admin.setOrganization(org);
             admin.setEmail("admin@hawkscope.com");
-            // MVP: Contraseña cruda simulando hash temporal. Se cambiará a BCrypt.
-            admin.setPasswordHash("admin123");
+            // Usando BCrypt para guardar la contraseña de forma segura
+            admin.setPasswordHash(passwordEncoder.encode("admin123"));
             admin.setFullName("System Admin");
             admin.setRole("admin");
             admin.setStatus("active");

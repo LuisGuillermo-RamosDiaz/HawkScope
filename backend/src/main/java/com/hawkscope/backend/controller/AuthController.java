@@ -72,4 +72,13 @@ public class AuthController {
                 .map(newToken -> ResponseEntity.ok(Map.of("token", newToken)))
                 .orElseGet(() -> ResponseEntity.status(401).build());
     }
+
+    @PostMapping("/accept-invite")
+    public ResponseEntity<?> acceptInvite(@Valid @RequestBody com.hawkscope.backend.dto.AcceptInviteDto request) {
+        try {
+            return ResponseEntity.ok(authService.acceptInvite(request));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
 }

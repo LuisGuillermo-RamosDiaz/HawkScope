@@ -14,7 +14,9 @@ const useAuthStore = create(
           user: {
             email: userData.email,
             role: userData.role,
-            token: userData.token
+            token: userData.token,
+            apiKey: userData.apiKey,
+            name: userData.name
           },
           isAuthenticated: true
         })
