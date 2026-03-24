@@ -3,7 +3,7 @@ import useAuthStore from '../store/authStore'
 
 // Crear instancia de Axios
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://hawkscope-backend.onrender.com',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -35,13 +35,19 @@ api.interceptors.response.use(
   (error) => {
     // Si el error es 401, limpiar estado y redirigir
     if (error.response?.status === 401) {
-      console.warn('Token expirado o inválido, cerrando sesión...')
+      // No cerrar sesión si es un token de MOCK (para evitar bucles en demo)
+      const token = useAuthStore.getState().getToken()
+      if (token && token.endsWith('.mock-signature')) {
+        console.warn('Backend inalcanzable, pero manteniéndonos en modo Mock.')
+        return Promise.reject(error)
+      }
+
+      console.warn('Token expirado o inválido, limpiando sesión...')
       
       // Limpiar estado global y localStorage
       useAuthStore.getState().logout()
       
-      // Redirigir a login (esto se manejará en el componente)
-      window.location.href = '/login'
+      // Dejamos que los componentes reaccionen al estado isAuthenticated=false
     }
     
     return Promise.reject(error)

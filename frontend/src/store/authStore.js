@@ -34,6 +34,9 @@ const useAuthStore = create(
         const { user } = get()
         if (!user?.token) return true
         
+        // Bypassear expiración para tokens de MOCK (demo)
+        if (user.token.endsWith('.mock-signature')) return false
+        
         try {
           const parts = user.token.split('.')
           if (parts.length !== 3) return true
