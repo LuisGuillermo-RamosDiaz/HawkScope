@@ -33,7 +33,7 @@ public class DataSeeder implements CommandLineRunner {
             admin.setEmail("admin@hawkscope.com");
             // MVP: Contraseña cruda simulando hash temporal. Se cambiará a BCrypt.
             admin.setPasswordHash("admin123");
-            admin.setName("System Admin");
+            admin.setFullName("System Admin");
             admin.setRole("admin");
             admin.setStatus("active");
             userRepo.save(admin);

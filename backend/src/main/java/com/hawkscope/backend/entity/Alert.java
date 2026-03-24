@@ -10,6 +10,7 @@ public class Alert {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.VARCHAR)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
