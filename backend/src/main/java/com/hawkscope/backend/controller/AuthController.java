@@ -8,6 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -32,6 +35,10 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
+        } catch (Exception e) { // Broad catch for any other unexpected errors
+            e.printStackTrace(); // Log the exception for debugging
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("message", "Error interno del servidor: " + e.getMessage(), "type", e.getClass().getSimpleName()));
         }
     }
 

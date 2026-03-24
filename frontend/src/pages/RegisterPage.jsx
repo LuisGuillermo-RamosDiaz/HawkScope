@@ -23,6 +23,7 @@ const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
+    fullName: '',
     companyName: '',
     email: '',
     password: '',
@@ -50,6 +51,7 @@ const RegisterPage = () => {
     setIsLoading(true)
     try {
       const result = await authService.register({
+        fullName: form.fullName,
         email: form.email,
         password: form.password,
         companyName: form.companyName,
@@ -57,7 +59,11 @@ const RegisterPage = () => {
         companySize: form.companySize,
       })
       // Auto-login: store token + user, redirect to dashboard
-      login(result.token, result.user)
+      login({
+        token: result.token,
+        email: result.user.email,
+        role: result.user.role
+      })
       navigate('/dashboard')
     } catch (error) {
       if (error.response?.status === 409) {
@@ -105,6 +111,18 @@ const RegisterPage = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Full Name */}
+            <div>
+              <label className="block text-[10px] font-medium text-text-secondary mb-1.5 uppercase tracking-[0.15em]">
+                Nombre Completo
+              </label>
+              <div className="relative group">
+                <input name="fullName" type="text" required value={form.fullName} onChange={handleChange}
+                  className="input-field pl-10 pr-4" placeholder="Juan Pérez" disabled={isLoading} />
+                <Icon name="user" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
+              </div>
+            </div>
+
             {/* Company Name */}
             <div>
               <label className="block text-[10px] font-medium text-text-secondary mb-1.5 uppercase tracking-[0.15em]">

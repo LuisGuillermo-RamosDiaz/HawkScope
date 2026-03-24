@@ -14,8 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.HashMap;
 
 @Service
+@Transactional
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -60,13 +63,15 @@ public class AuthService {
         org.setName(request.companyName());
         org.setIndustry(request.industry());
         org.setCompanySize(request.companySize());
+        org.setApiKey("sk_live_" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16));
+        org.setStatus("active");
         org = organizationRepository.save(org);
 
         // Create admin User
         User user = new User();
         user.setEmail(request.email());
         user.setPasswordHash(request.password());  // stored as-is, same as existing login comparison
-        user.setName(request.email().split("@")[0]);  // default name from email prefix
+        user.setName(request.fullName());
         user.setRole("admin");
         user.setOrganization(org);
         user = userRepository.save(user);
