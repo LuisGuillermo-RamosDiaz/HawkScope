@@ -29,7 +29,7 @@ const metricsService = {
       const response = await api.get('/api/v1/metrics/kpis')
       return response.data
     } catch (e) {
-      return { data: { totalServers: 24, healthyServers: 22, criticalServers: 2, uptime: 99.9, alerts: 5, responseTime: 120 } }
+      return { data: { totalServers: 0, healthyServers: 0, criticalServers: 0, uptime: 0, alerts: 0, responseTime: 0 } }
     }
   },
 
@@ -39,7 +39,7 @@ const metricsService = {
       const response = await api.get('/api/v1/metrics/servers')
       return response.data
     } catch (e) {
-      return { data: { healthy: 22, warning: 2, critical: 0, total: 24 } }
+      return { data: { data: [] } }
     }
   }
 }
