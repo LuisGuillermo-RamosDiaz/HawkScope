@@ -1,15 +1,14 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-i18next'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import useAuthStore from '../store/authStore'
 import usersService from '../services/usersService'
-import { useParams as reactRouterUseParams, useNavigate as reactRouterUseNavigate } from 'react-router-dom'
 import Icon from '../components/icons/Icon'
 import logo from '../assets/logo.svg'
 
 const AcceptInvitePage = () => {
-  const { token } = reactRouterUseParams()
-  const navigate = reactRouterUseNavigate()
+  const { token } = useParams()
+  const navigate = useNavigate()
   const login = useAuthStore(state => state.login)
   
   const [isLoading, setIsLoading] = useState(false)

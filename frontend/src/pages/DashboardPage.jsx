@@ -16,33 +16,6 @@ const DashboardPage = () => {
   const { showError } = useToast()
   const queryClient = useQueryClient()
 
-  const generateMockMetrics = () => {
-    const data = []
-    for (let i = 0; i < 30; i++) {
-      data.push({
-        cpu: Math.floor(Math.random() * 40) + 30,
-        ram: Math.floor(Math.random() * 30) + 40,
-      })
-    }
-    return data
-  }
-
-  const generateMockKpis = () => ({
-    totalServers: 24,
-    healthyServers: 22,
-    criticalServers: 2,
-    uptime: 99.9,
-    alerts: 5,
-    responseTime: 120,
-  })
-
-  const generateMockServerStatus = () => ({
-    healthy: 22,
-    warning: 2,
-    critical: 0,
-    total: 24,
-  })
-
   // Métricas más recientes con polling cada 10s
   const { data: metricsRaw, isLoading: metricsLoading, isFetching: metricsFetching } = useQuery({
     queryKey: ['metrics-latest'],
@@ -50,7 +23,6 @@ const DashboardPage = () => {
     refetchInterval: 10000,
     retry: 2,
     staleTime: 5000,
-    placeholderData: generateMockMetrics,
     onError: () => showError('Error al cargar métricas'),
   })
 
@@ -61,7 +33,6 @@ const DashboardPage = () => {
     refetchInterval: 10000,
     retry: 2,
     staleTime: 5000,
-    placeholderData: generateMockKpis,
     onError: () => showError('Error al cargar KPIs'),
   })
 
@@ -71,7 +42,6 @@ const DashboardPage = () => {
     queryFn: () => metricsService.getServers().then(r => r.data?.data || r.data),
     refetchInterval: 10000,
     retry: 2,
-    placeholderData: generateMockServerStatus,
     onError: () => showError('Error al cargar servidores'),
   })
 
@@ -83,40 +53,40 @@ const DashboardPage = () => {
     retry: 2,
   })
 
-  const metrics = metricsRaw || generateMockMetrics()
-  const kpis = kpisRaw || generateMockKpis()
-  const serverStatus = serversRaw || generateMockServerStatus()
+  const metrics = metricsRaw || []
+  const kpis = kpisRaw || {}
   const loading = metricsLoading && kpisLoading && serversLoading
   const isRefreshing = metricsFetching && !metricsLoading
+
+  // Build server status from real data
+  const serverStatus = useMemo(() => {
+    if (Array.isArray(serversRaw)) {
+      return {
+        healthy: serversRaw.filter(s => s.status === 'healthy').length,
+        warning: serversRaw.filter(s => s.status === 'warning').length,
+        critical: serversRaw.filter(s => s.status === 'critical').length,
+        offline: serversRaw.filter(s => s.status === 'offline').length,
+        total: serversRaw.length,
+      }
+    }
+    // If serversRaw is already an object with counts
+    if (serversRaw && typeof serversRaw === 'object' && !Array.isArray(serversRaw)) {
+      return {
+        healthy: serversRaw.healthy || 0,
+        warning: serversRaw.warning || 0,
+        critical: serversRaw.critical || 0,
+        offline: serversRaw.offline || 0,
+        total: serversRaw.total || 0,
+      }
+    }
+    return { healthy: 0, warning: 0, critical: 0, offline: 0, total: 0 }
+  }, [serversRaw])
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['metrics-latest'] })
     queryClient.invalidateQueries({ queryKey: ['kpis'] })
     queryClient.invalidateQueries({ queryKey: ['servers'] })
     queryClient.invalidateQueries({ queryKey: ['historical'] })
-  }
-
-  const recentEvents = [
-    { id: 1, type: 'success', message: 'Deploy exitoso en prod-01', time: '2m', icon: 'check-circle' },
-    { id: 2, type: 'warning', message: 'CPU alta en worker-03 (87%)', time: '5m', icon: 'alert-triangle' },
-    { id: 3, type: 'info', message: 'Backup completado (db-main)', time: '12m', icon: 'database' },
-    { id: 4, type: 'success', message: 'SSL renovado en api-gateway', time: '25m', icon: 'shield-check' },
-    { id: 5, type: 'critical', message: 'Timeout en health-check srv-12', time: '30m', icon: 'x-circle' },
-    { id: 6, type: 'info', message: 'Escalado automatico activado', time: '45m', icon: 'zap' },
-  ]
-
-  const eventColors = {
-    success: 'text-status-healthy',
-    warning: 'text-status-warning',
-    critical: 'text-status-critical',
-    info: 'text-accent-blue',
-  }
-
-  const eventBg = {
-    success: 'bg-status-healthy/5',
-    warning: 'bg-status-warning/5',
-    critical: 'bg-status-critical/5',
-    info: 'bg-accent-blue/5',
   }
 
   if (loading) {
@@ -132,6 +102,8 @@ const DashboardPage = () => {
       </div>
     )
   }
+
+  const isEmpty = serverStatus.total === 0
 
   return (
     <StaggerContainer className="space-y-5">
@@ -189,230 +161,132 @@ const DashboardPage = () => {
         <StaggerItem>
           <KpiCard
             title="Servidores Activos"
-            value={serverStatus?.healthy || 0}
-            subtitle={`/ ${serverStatus?.total || 0}`}
+            value={serverStatus.healthy}
+            subtitle={`/ ${serverStatus.total}`}
             iconName="server"
             status="success"
-            trend={2.5}
           />
         </StaggerItem>
         <StaggerItem>
           <KpiCard
             title="Alertas Criticas"
-            value={serverStatus?.critical || 0}
+            value={serverStatus.critical}
             subtitle="activas"
             iconName="alert-triangle"
-            status={serverStatus?.critical > 0 ? 'danger' : 'normal'}
-            trend={-1.2}
+            status={serverStatus.critical > 0 ? 'danger' : 'normal'}
           />
         </StaggerItem>
         <StaggerItem>
           <KpiCard
             title="Uptime Global"
-            value={kpis?.uptime || 0}
+            value={kpis.availability || (serverStatus.total > 0 ? Math.round((serverStatus.total - (serverStatus.offline || 0)) / serverStatus.total * 1000) / 10 : 0)}
             subtitle="%"
             iconName="activity"
             status="success"
-            trend={0.1}
           />
         </StaggerItem>
         <StaggerItem>
           <KpiCard
-            title="Tiempo Respuesta"
-            value={kpis?.responseTime || 0}
-            subtitle="ms"
+            title="CPU Promedio"
+            value={kpis.avgCpu || 0}
+            subtitle="%"
             iconName="zap"
-            status={kpis?.responseTime > 200 ? 'warning' : 'normal'}
-            trend={-3.8}
+            status={kpis.avgCpu > 80 ? 'warning' : 'normal'}
           />
         </StaggerItem>
       </div>
 
-      {/* Charts + Activity Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Main Chart */}
-        <StaggerItem className="lg:col-span-2">
-          <GlassCard padding="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-accent-cyan/8 border border-accent-cyan/10 flex items-center justify-center">
-                  <Icon name="activity" size={14} className="text-accent-cyan" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-text-primary">Rendimiento del Sistema</h3>
-                  <p className="text-[10px] text-text-muted">Ultima hora - auto-refresh 10s</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-accent-cyan" style={{ boxShadow: '0 0 6px rgba(0,240,255,0.6)' }} />
-                  <span className="text-text-secondary">CPU</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-accent-purple" style={{ boxShadow: '0 0 6px rgba(168,85,247,0.6)' }} />
-                  <span className="text-text-secondary">RAM</span>
-                </div>
-              </div>
-            </div>
-            <MetricsChart data={metrics} loading={loading} />
-          </GlassCard>
-        </StaggerItem>
-
-        {/* Activity Feed */}
+      {/* Empty state or Charts */}
+      {isEmpty ? (
         <StaggerItem>
-          <GlassCard padding="p-5" className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-accent-purple/8 border border-accent-purple/10 flex items-center justify-center">
-                  <Icon name="activity" size={14} className="text-accent-purple" />
-                </div>
-                <h3 className="text-sm font-semibold text-text-primary">Actividad</h3>
+          <GlassCard padding="p-12">
+            <div className="flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 rounded-2xl bg-accent-cyan/5 border border-accent-cyan/10 flex items-center justify-center mb-5">
+                <Icon name="terminal" size={28} className="text-accent-cyan/40" />
               </div>
-              <span className="text-[10px] text-text-muted font-mono">{recentEvents.length} eventos</span>
-            </div>
-            <div className="space-y-0.5 flex-1 overflow-auto">
-              {recentEvents.map((event, i) => (
-                <motion.div
-                  key={event.id}
-                  className={`flex items-start gap-3 py-2.5 px-2.5 rounded-lg ${eventBg[event.type]} hover:bg-surface-3 transition-colors cursor-default`}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.06 }}
-                >
-                  <div className={`mt-0.5 w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${eventBg[event.type]}`}>
-                    <Icon name={event.icon} size={13} className={eventColors[event.type]} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] text-text-primary leading-relaxed">{event.message}</p>
-                    <p className="text-[9px] text-text-muted mt-0.5 font-mono">hace {event.time}</p>
-                  </div>
-                </motion.div>
-              ))}
+              <h3 className="text-lg font-semibold text-text-primary mb-2">Conecta tu Primer Servidor</h3>
+              <p className="text-xs text-text-secondary max-w-sm mb-4">
+                Instala el agente de HawkScope en tu servidor para comenzar a ver metricas en tiempo real.
+              </p>
+              <p className="text-[10px] text-text-muted">
+                Ve a <span className="text-accent-cyan font-medium">Configuracion</span> para obtener el comando de instalacion.
+              </p>
             </div>
           </GlassCard>
         </StaggerItem>
-      </div>
-
-      {/* Server Overview + Quick Stats */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Server distribution */}
-        <StaggerItem className="lg:col-span-2">
-          <GlassCard padding="p-5">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="w-7 h-7 rounded-lg bg-accent-emerald/8 border border-accent-emerald/10 flex items-center justify-center">
-                <Icon name="server" size={14} className="text-accent-emerald" />
-              </div>
-              <h3 className="text-sm font-semibold text-text-primary">Distribucion de Nodos</h3>
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              {[
-                { label: 'Healthy', value: serverStatus?.healthy || 0, color: 'bg-status-healthy', glow: 'rgba(16,185,129,0.5)' },
-                { label: 'Warning', value: serverStatus?.warning || 0, color: 'bg-status-warning', glow: 'rgba(245,158,11,0.5)' },
-                { label: 'Critical', value: serverStatus?.critical || 0, color: 'bg-status-critical', glow: 'rgba(239,68,68,0.5)' },
-                { label: 'Total', value: serverStatus?.total || 0, color: 'bg-accent-cyan', glow: 'rgba(0,240,255,0.5)' },
-              ].map((item) => (
-                <div key={item.label} className="text-center p-3 rounded-lg bg-surface-2/50 border border-white/[0.03]">
-                  <div className="flex justify-center mb-2">
-                    <motion.div
-                      className={`w-2.5 h-2.5 rounded-full ${item.color}`}
-                      style={{ boxShadow: `0 0 8px ${item.glow}` }}
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ repeat: Infinity, duration: 2, delay: Math.random() }}
-                    />
+      ) : (
+        <>
+          {/* Charts + Activity Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Main Chart */}
+            <StaggerItem className="lg:col-span-2">
+              <GlassCard padding="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-accent-cyan/8 border border-accent-cyan/10 flex items-center justify-center">
+                      <Icon name="activity" size={14} className="text-accent-cyan" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-text-primary">Rendimiento del Sistema</h3>
+                      <p className="text-[10px] text-text-muted">Ultima hora - auto-refresh 10s</p>
+                    </div>
                   </div>
-                  <p className="text-lg font-bold font-mono text-text-primary">{item.value}</p>
-                  <p className="text-[9px] text-text-muted uppercase tracking-wider mt-0.5">{item.label}</p>
+                  <div className="flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-accent-cyan" style={{ boxShadow: '0 0 6px rgba(0,240,255,0.6)' }} />
+                      <span className="text-text-secondary">CPU</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-accent-purple" style={{ boxShadow: '0 0 6px rgba(168,85,247,0.6)' }} />
+                      <span className="text-text-secondary">RAM</span>
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-            {/* Bar visualization */}
-            <div className="mt-4 h-2 rounded-full bg-surface-3 overflow-hidden flex">
-              {serverStatus && (
-                <>
-                  <motion.div
-                    className="h-full bg-status-healthy"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(serverStatus.healthy / serverStatus.total) * 100}%` }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
-                  />
-                  <motion.div
-                    className="h-full bg-status-warning"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(serverStatus.warning / serverStatus.total) * 100}%` }}
-                    transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
-                  />
-                  <motion.div
-                    className="h-full bg-status-critical"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(serverStatus.critical / serverStatus.total) * 100}%` }}
-                    transition={{ duration: 1, ease: 'easeOut', delay: 0.4 }}
-                  />
-                </>
-              )}
-            </div>
-          </GlassCard>
-        </StaggerItem>
+                <MetricsChart data={metrics} loading={loading} />
+              </GlassCard>
+            </StaggerItem>
 
-        {/* Quick Stats */}
-        <StaggerItem>
-          <GlassCard padding="p-5" className="h-full">
-            <h3 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2">
-              <Icon name="zap" size={14} className="text-accent-amber" />
-              Quick Stats
-            </h3>
-            <div className="space-y-3">
-              {[
-                { label: 'Alertas Activas', value: kpis?.alerts || 0, icon: 'bell', color: 'text-status-warning' },
-                { label: 'Resp. Promedio', value: `${kpis?.responseTime || 0}ms`, icon: 'clock', color: 'text-accent-cyan' },
-                { label: 'Uptime', value: `${kpis?.uptime || 0}%`, icon: 'activity', color: 'text-status-healthy' },
-              ].map((stat) => (
-                <div key={stat.label} className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0">
-                  <div className="flex items-center gap-2">
-                    <Icon name={stat.icon} size={13} className={stat.color} />
-                    <span className="text-xs text-text-secondary">{stat.label}</span>
+            {/* Server Status */}
+            <StaggerItem>
+              <GlassCard padding="p-5" className="h-full flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-accent-purple/8 border border-accent-purple/10 flex items-center justify-center">
+                      <Icon name="server" size={14} className="text-accent-purple" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-text-primary">Servidores</h3>
                   </div>
-                  <span className="text-sm font-mono font-semibold text-text-primary">{stat.value}</span>
+                  <span className="text-[10px] text-text-muted font-mono">{serverStatus.total} nodos</span>
                 </div>
-              ))}
-            </div>
-          </GlassCard>
-        </StaggerItem>
-
-        {/* Threat Level */}
-        <StaggerItem>
-          <GlassCard padding="p-5" className="h-full flex flex-col justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary mb-1 flex items-center gap-2">
-                <Icon name="shield" size={14} className="text-accent-cyan" />
-                Nivel de Amenaza
-              </h3>
-              <p className="text-[10px] text-text-muted mb-4">Evaluacion actual del SOC</p>
-            </div>
-            <div className="flex flex-col items-center py-2">
-              <motion.div
-                className="relative w-20 h-20 rounded-full flex items-center justify-center"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))',
-                  border: '2px solid rgba(16, 185, 129, 0.3)',
-                }}
-                animate={{
-                  boxShadow: ['0 0 20px rgba(16,185,129,0.1)', '0 0 40px rgba(16,185,129,0.2)', '0 0 20px rgba(16,185,129,0.1)'],
-                }}
-                transition={{ repeat: Infinity, duration: 3 }}
-              >
-                <div className="text-center">
-                  <p className="text-lg font-bold text-status-healthy font-mono">LOW</p>
+                <div className="space-y-3 flex-1">
+                  {[
+                    { label: 'Healthy', value: serverStatus.healthy, color: 'text-status-healthy', bg: 'bg-status-healthy' },
+                    { label: 'Warning', value: serverStatus.warning, color: 'text-status-warning', bg: 'bg-status-warning' },
+                    { label: 'Critical', value: serverStatus.critical, color: 'text-status-critical', bg: 'bg-status-critical' },
+                    { label: 'Offline', value: serverStatus.offline || 0, color: 'text-text-muted', bg: 'bg-text-muted' },
+                  ].map(item => (
+                    <div key={item.label} className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${item.bg}`} />
+                        <span className="text-xs text-text-secondary">{item.label}</span>
+                      </div>
+                      <span className={`text-sm font-mono font-semibold ${item.color}`}>{item.value}</span>
+                    </div>
+                  ))}
                 </div>
-              </motion.div>
-            </div>
-            <div className="flex items-center justify-center gap-1 mt-2">
-              {['bg-status-healthy', 'bg-status-healthy', 'bg-surface-4', 'bg-surface-4', 'bg-surface-4'].map((color, i) => (
-                <div key={i} className={`w-6 h-1.5 rounded-full ${color} transition-all`} />
-              ))}
-            </div>
-          </GlassCard>
-        </StaggerItem>
-      </div>
+                {/* Bar visualization */}
+                {serverStatus.total > 0 && (
+                  <div className="mt-4 h-2 rounded-full bg-surface-3 overflow-hidden flex">
+                    <motion.div className="h-full bg-status-healthy" initial={{ width: 0 }} animate={{ width: `${(serverStatus.healthy / serverStatus.total) * 100}%` }} transition={{ duration: 1, ease: 'easeOut' }} />
+                    <motion.div className="h-full bg-status-warning" initial={{ width: 0 }} animate={{ width: `${(serverStatus.warning / serverStatus.total) * 100}%` }} transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }} />
+                    <motion.div className="h-full bg-status-critical" initial={{ width: 0 }} animate={{ width: `${(serverStatus.critical / serverStatus.total) * 100}%` }} transition={{ duration: 1, ease: 'easeOut', delay: 0.4 }} />
+                  </div>
+                )}
+              </GlassCard>
+            </StaggerItem>
+          </div>
+        </>
+      )}
 
       {/* Bottom Status Bar */}
       <StaggerItem>
@@ -421,12 +295,8 @@ const DashboardPage = () => {
             <div className="flex items-center gap-5">
               <StatusBadge status="healthy" label="Sistema Operativo" size="xs" />
               <div className="flex items-center gap-2 text-[10px] text-text-secondary">
-                <Icon name="clock" size={11} />
-                <span>Respuesta: <span className="font-mono text-accent-cyan">{kpis?.responseTime || 0}ms</span></span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px] text-text-secondary hidden md:flex">
                 <Icon name="server" size={11} />
-                <span>Nodos: <span className="font-mono text-text-primary">{serverStatus?.total || 0}</span></span>
+                <span>Nodos: <span className="font-mono text-text-primary">{serverStatus.total}</span></span>
               </div>
             </div>
             <div className="flex items-center gap-2 text-[10px] text-text-muted">
