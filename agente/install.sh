@@ -364,19 +364,21 @@ EOF
 set_permissions() {
   info "Configurando permisos…"
 
-  # El agente necesita leer sus archivos y escribir logs
+  # El agente necesita leer sus archivos
   chown -R "root:${AGENT_USER}" "$INSTALL_DIR"
-
-  # El directorio raíz: root propietario, grupo hawkscope puede leer
   chmod 750 "$INSTALL_DIR"
 
   # Logs: hawkscope puede escribir
   chown -R "${AGENT_USER}:${AGENT_USER}" "${INSTALL_DIR}/logs"
   chmod 750 "${INSTALL_DIR}/logs"
-
-  # monitor.py y requirements.txt: solo lectura para el agente
+  
+  # Archivos python: solo lectura para el agente
   chmod 640 "${INSTALL_DIR}/monitor.py"
   chmod 640 "${INSTALL_DIR}/requirements.txt"
+
+  # .env: permisos restrictivos — el agente puede leer la clave, nadie mas
+  chown "${AGENT_USER}:${AGENT_USER}" "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
 
   # .env: solo root (contiene la API key)
   [[ -f "${INSTALL_DIR}/.env" ]] && chmod 600 "${INSTALL_DIR}/.env"
