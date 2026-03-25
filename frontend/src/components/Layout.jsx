@@ -2,8 +2,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import useAuthStore from '../store/authStore'
 import useNotificationStore from '../store/notificationStore'
+import metricsService from '../services/metricsService'
 import Toast from './Toast'
 import { useToast } from '../hooks/useToast'
 import Icon from './icons/Icon'
@@ -20,6 +22,42 @@ const ROLE_ACCESS = {
   admin:    ['/dashboard', '/resources', '/kpis', '/audit', '/security', '/settings', '/users'],
   operator: ['/dashboard', '/resources', '/kpis', '/security'],
   viewer:   ['/dashboard', '/resources', '/kpis', '/audit'],
+}
+
+const SidebarSystemStatus = ({ sidebarOpen, t }) => {
+  const { data: kpis } = useQuery({
+    queryKey: ['sidebar-kpis'],
+    queryFn: () => metricsService.getKpis().then(r => r.data || {}),
+    refetchInterval: 15000,
+    retry: 1,
+  })
+
+  if (!sidebarOpen) return null
+
+  const totalServers = kpis?.totalServers || 0
+  const availability = kpis?.availability || 0
+
+  return (
+    <div className="px-3 pb-2">
+      <div className="glass-card p-3 rounded-lg">
+        <div className="flex items-center gap-2 mb-2">
+          <motion.div
+            className={`w-1.5 h-1.5 rounded-full ${totalServers > 0 ? 'bg-status-healthy' : 'bg-text-muted'}`}
+            style={totalServers > 0 ? { boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)' } : {}}
+            animate={totalServers > 0 ? { scale: [1, 1.3, 1] } : {}}
+            transition={{ repeat: Infinity, duration: 2 }}
+          />
+          <span className={`text-[10px] font-medium ${totalServers > 0 ? 'text-status-healthy' : 'text-text-muted'}`}>
+            {totalServers > 0 ? t('dashboard.systemOperational') : 'Sin servidores'}
+          </span>
+        </div>
+        <div className="flex justify-between text-[9px] text-text-muted">
+          <span>Uptime {availability}%</span>
+          <span>{totalServers} nodos</span>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 const Layout = ({ children }) => {
@@ -232,26 +270,8 @@ const Layout = ({ children }) => {
           })}
         </nav>
 
-        {/* System Status Mini */}
-        {sidebarOpen && (
-          <div className="px-3 pb-2">
-            <div className="glass-card p-3 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <motion.div
-                  className="w-1.5 h-1.5 rounded-full bg-status-healthy"
-                  style={{ boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)' }}
-                  animate={{ scale: [1, 1.3, 1] }}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                />
-                <span className="text-[10px] text-status-healthy font-medium">{t('dashboard.systemOperational')}</span>
-              </div>
-              <div className="flex justify-between text-[9px] text-text-muted">
-                <span>Uptime 99.9%</span>
-                <span>24 nodos</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* System Status Mini — real data from API */}
+        <SidebarSystemStatus sidebarOpen={sidebarOpen} t={t} />
 
         {/* User section */}
         <div className="px-2.5 py-3 border-t border-white/[0.04] flex-shrink-0">

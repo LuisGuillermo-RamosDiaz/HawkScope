@@ -1,20 +1,19 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-
-const defaultNotifications = [
-  { id: 1, type: 'critical', title: 'Brute force detectado', desc: 'IP 198.51.100.23 bloqueada', time: '2m', read: false, timestamp: Date.now() - 120000 },
-  { id: 2, type: 'warning', title: 'CPU alta en worker-03', desc: 'Uso sostenido al 87% por 5 min', time: '7m', read: false, timestamp: Date.now() - 420000 },
-  { id: 3, type: 'success', title: 'Deploy exitoso prod-api-01', desc: 'Version v2.4.1 en produccion', time: '25m', read: true, timestamp: Date.now() - 1500000 },
-  { id: 4, type: 'info', title: 'Backup completado', desc: 'db-main — 2.4 GB guardados', time: '1h', read: true, timestamp: Date.now() - 3600000 },
-  { id: 5, type: 'warning', title: 'Certificado SSL proxima caducidad', desc: 'api-legacy caduca en 7 dias', time: '3h', read: true, timestamp: Date.now() - 10800000 },
-]
+import { isDemoMode } from '../utils/demoMode'
+import { demoNotifications } from '../utils/demoData'
 
 const useNotificationStore = create(
   persist(
     (set, get) => ({
-      notifications: defaultNotifications,
+      notifications: [],
 
       unreadCount: () => get().notifications.filter(n => !n.read).length,
+
+      // Load demo notifications when entering demo mode
+      loadDemoNotifications: () => {
+        set({ notifications: demoNotifications })
+      },
 
       markAllRead: () => {
         set(state => ({

@@ -29,6 +29,7 @@ const useAuthStore = create(
         })
         // Limpiar localStorage completamente
         localStorage.removeItem('auth-storage')
+        localStorage.removeItem('hawkscope-notifications')
       },
       
       // Verificar si el token está expirado (simple validación)

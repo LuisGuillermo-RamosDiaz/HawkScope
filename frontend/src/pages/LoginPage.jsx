@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import useAuthStore from '../store/authStore'
+import useNotificationStore from '../store/notificationStore'
 import authService from '../services/authService'
 import { useToast } from '../hooks/useToast'
 import Icon from '../components/icons/Icon'
@@ -96,6 +97,9 @@ const LoginPage = () => {
         apiKey: mockResult.user.apiKey,
         name: mockResult.user.name
       })
+
+      // Load demo notifications for demo mode
+      useNotificationStore.getState().loadDemoNotifications()
 
       showSuccess('Modo Demo Iniciado - Funciones Limitadas')
       setTimeout(() => navigate('/dashboard', { replace: true }), 500)
