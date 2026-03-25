@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import KpiCard from '../components/KpiCard'
@@ -209,7 +210,7 @@ const DashboardPage = () => {
                 Instala el agente de HawkScope en tu servidor para comenzar a ver metricas en tiempo real.
               </p>
               <p className="text-[10px] text-text-muted">
-                Ve a <span className="text-accent-cyan font-medium">Configuracion</span> para obtener el comando de instalacion.
+                Ve a <Link to="/setup" className="text-accent-cyan font-medium hover:underline cursor-pointer">Configuración del Agente</Link> para obtener el comando de instalacion.
               </p>
             </div>
           </GlassCard>

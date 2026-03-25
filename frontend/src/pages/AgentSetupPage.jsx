@@ -15,7 +15,7 @@ const AgentSetupPage = () => {
   const [connected, setConnected] = useState(false)
 
   const backendUrl = import.meta.env.VITE_API_URL || 'https://hawkscope-backend.onrender.com/api'
-  const installCommand = `curl -fsSL https://raw.githubusercontent.com/LuisGuillermo-RamosDiaz/proyecto-dashboard/main/agent/install.sh | sudo bash -s -- --api-key=${user?.apiKey || '<TU_API_KEY>'}`
+  const installCommand = `curl -fsSL https://raw.githubusercontent.com/LuisGuillermo-RamosDiaz/HawkScope/main/agente/install.sh | sudo bash -s -- --api-key=${user?.apiKey || '<TU_API_KEY>'}`
 
   const handleCopy = () => {
     navigator.clipboard.writeText(installCommand)
