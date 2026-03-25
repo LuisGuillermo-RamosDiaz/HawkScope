@@ -86,9 +86,10 @@ public class AuthService {
         );
 
         return new LoginResponseDto(token, new UserInfoDto(
+            user.getId().toString(),
             user.getEmail(),
-            user.getFullName(),
             user.getRole(),
+            user.getFullName(),
             org.getApiKey()
         ));
     }
@@ -127,9 +128,10 @@ public class AuthService {
         );
 
         return new LoginResponseDto(token, new UserInfoDto(
+            user.getId().toString(),
             user.getEmail(),
-            user.getFullName(),
             user.getRole(),
+            user.getFullName(),
             org.getApiKey()
         ));
     }
