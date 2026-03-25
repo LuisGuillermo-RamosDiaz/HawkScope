@@ -24,15 +24,16 @@ const AgentSetupPage = () => {
   }
 
   useEffect(() => {
-    if (step === 2 && !connecting && !connected) {
+    if (step === 2) {
       setConnecting(true)
+      setConnected(false)
       const timer = setTimeout(() => {
         setConnecting(false)
         setConnected(true)
       }, 3000)
       return () => clearTimeout(timer)
     }
-  }, [step, connecting, connected])
+  }, [step])
 
   const steps = [
     { num: 1, title: t('agentSetup.step1Title'), desc: t('agentSetup.step1Desc') },

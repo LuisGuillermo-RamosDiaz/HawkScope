@@ -81,7 +81,12 @@ public class Server {
     public void setOsArch(String osArch) { this.osArch = osArch; }
     public String getIpInternal() { return ipInternal; }
     public void setIpInternal(String ipInternal) { this.ipInternal = ipInternal; }
-    public String getStatus() { return status; }
+    public String getStatus() { 
+        if (lastHeartbeat != null && lastHeartbeat.plusMinutes(2).isBefore(LocalDateTime.now())) {
+            return "offline";
+        }
+        return status; 
+    }
     public void setStatus(String status) { this.status = status; }
     public String getAgentVersion() { return agentVersion; }
     public void setAgentVersion(String agentVersion) { this.agentVersion = agentVersion; }
