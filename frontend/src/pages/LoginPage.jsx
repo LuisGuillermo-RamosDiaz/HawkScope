@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import useAuthStore from '../store/authStore'
 import authService from '../services/authService'
@@ -18,13 +18,15 @@ const LoginPage = () => {
   const { showError, showSuccess } = useToast()
   const from = location.state?.from?.pathname || '/dashboard'
 
+  const [isDemoMode, setIsDemoMode] = useState(false)
+
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 100)
     
     // Auto-fill demo if query param exists
     const params = new URLSearchParams(location.search)
     if (params.get('demo') === 'true') {
-      setFormData({ email: 'admin@devsecops.com', password: 'demo123!' })
+      setIsDemoMode(true)
     }
     
     return () => clearTimeout(timer)
@@ -39,16 +41,7 @@ const LoginPage = () => {
     setIsLoading(true)
 
     try {
-      let response
-      try {
-        console.log('Intentando login real...')
-        response = await authService.login(formData)
-      } catch (_apiError) {
-        console.warn('Backend no disponible, recurriendo a MOCK login.')
-        response = await mockLogin(formData)
-      }
-
-      console.log('Login exitoso. Usuario:', response.user.email)
+      const response = await authService.login(formData)
       login({
         email: response.user.email,
         role: response.user.role,
@@ -57,26 +50,22 @@ const LoginPage = () => {
         name: response.user.name
       })
 
-      console.log('Estado guardado. Esperando persistencia...')
       showSuccess('Acceso concedido - Bienvenido al SOC')
       
-      // Delay para asegurar que el storage se actualice antes de navegar
       setTimeout(() => {
-        console.log('Navegando ahora...')
         navigate('/dashboard', { replace: true })
       }, 500)
     } catch (err) {
-      console.error('Error crítico en login:', err)
       if (err.response) {
         const messages = {
-          401: 'Credenciales invalidas.',
+          401: 'Credenciales inválidas.',
           403: 'Cuenta bloqueada. Contacta al administrador.',
           429: 'Demasiados intentos. Espera unos minutos.',
           500: 'Error del servidor.',
         }
-        showError(messages[err.response.status] || 'Error al iniciar sesion.')
+        showError(messages[err.response.status] || 'Error al iniciar sesión.')
       } else if (err.request) {
-        showError('Error de conexion con el servidor.')
+        showError('No hay conexión con el servidor Backend (Render espabílalo).')
       } else {
         showError('Error inesperado.')
       }
@@ -85,27 +74,34 @@ const LoginPage = () => {
     }
   }
 
-  const mockLogin = async (credentials) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const isValidPassword = credentials.password === 'demo123!' || credentials.password === 'nuevacontraseña'
-        if (credentials.email === 'admin@devsecops.com' && isValidPassword) {
-          const payload = {
-            email: 'admin@devsecops.com',
-            role: 'admin',
-            exp: Math.floor(Date.now() / 1000) + 3600,
-          }
-          const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-          const payloadStr = btoa(JSON.stringify(payload))
-          resolve({
-            user: { email: 'admin@devsecops.com', role: 'admin', apiKey: 'sk_test_demo123456789', name: 'Admin Demo' },
-            token: `${header}.${payloadStr}.mock-signature`,
-          })
-        } else {
-          reject(new Error('Credenciales invalidas'))
-        }
-      }, 1000)
-    })
+  const handleDemoLogin = async () => {
+    setIsLoading(true)
+    try {
+      const payload = {
+        email: 'admin@devsecops.com',
+        role: 'admin',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }
+      const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+      const payloadStr = btoa(JSON.stringify(payload))
+      const mockResult = {
+        user: { email: 'admin@devsecops.com', role: 'admin', apiKey: 'sk_demo_live123456789', name: 'HawkScope Demo' },
+        token: `${header}.${payloadStr}.mock-signature`,
+      }
+      
+      login({
+        email: mockResult.user.email,
+        role: mockResult.user.role,
+        token: mockResult.token,
+        apiKey: mockResult.user.apiKey,
+        name: mockResult.user.name
+      })
+
+      showSuccess('Modo Demo Iniciado - Funciones Limitadas')
+      setTimeout(() => navigate('/dashboard', { replace: true }), 500)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -205,118 +201,80 @@ const LoginPage = () => {
                 </motion.div>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <motion.div
-                  initial={{ opacity: 0, x: -15 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.35 }}
-                >
-                  <label htmlFor="email" className="block text-[10px] font-medium text-text-secondary mb-2 uppercase tracking-[0.15em]">
-                    Correo Electronico
-                  </label>
-                  <div className="relative group">
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="input-field pl-10 pr-4"
-                      placeholder="admin@devsecops.com"
-                      disabled={isLoading}
-                    />
-                    <Icon name="at-sign" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
-                  </div>
-                </motion.div>
+              {/* Form or Demo */}
+              {!isDemoMode ? (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <motion.div initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}>
+                    <label htmlFor="email" className="block text-[10px] font-medium text-text-secondary mb-2 uppercase tracking-[0.15em]">
+                      Correo Electrónico
+                    </label>
+                    <div className="relative group">
+                      <input id="email" name="email" type="email" required value={formData.email} onChange={handleChange}
+                        className="input-field pl-10 pr-4" placeholder="admin@devsecops.com" disabled={isLoading} />
+                      <Icon name="at-sign" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
+                    </div>
+                  </motion.div>
 
-                <motion.div
-                  initial={{ opacity: 0, x: -15 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  <label htmlFor="password" className="block text-[10px] font-medium text-text-secondary mb-2 uppercase tracking-[0.15em]">
-                    Contrasena
-                  </label>
-                  <div className="relative group">
-                    <input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="input-field pl-10 pr-10"
-                      placeholder="Ingresa tu contrasena"
-                      disabled={isLoading}
-                    />
-                    <Icon name="lock" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
-                      tabIndex={-1}
-                    >
-                      <Icon name={showPassword ? 'eye-off' : 'eye'} size={15} />
+                  <motion.div initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
+                    <label htmlFor="password" className="block text-[10px] font-medium text-text-secondary mb-2 uppercase tracking-[0.15em]">
+                      Contraseña
+                    </label>
+                    <div className="relative group">
+                      <input id="password" name="password" type={showPassword ? 'text' : 'password'} required value={formData.password} onChange={handleChange}
+                        className="input-field pl-10 pr-10" placeholder="Ingresa tu contraseña" disabled={isLoading} />
+                      <Icon name="lock" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors" tabIndex={-1}>
+                        <Icon name={showPassword ? 'eye-off' : 'eye'} size={15} />
+                      </button>
+                    </div>
+                  </motion.div>
+
+                  <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+                    <button type="submit" disabled={isLoading}
+                      className={`btn-primary w-full flex items-center justify-center gap-2.5 py-3 text-sm ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                      {isLoading ? (
+                        <>
+                          <motion.div className="w-4 h-4 border-2 border-surface-base border-t-transparent rounded-full" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.7, ease: 'linear' }} />
+                          <span>Verificando infraestructura...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icon name="log-in" size={16} />
+                          <span>Acceder al Sistema</span>
+                        </>
+                      )}
                     </button>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.45 }}
-                >
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className={`btn-primary w-full flex items-center justify-center gap-2.5 py-3 text-sm ${
-                      isLoading ? 'opacity-70 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    {isLoading ? (
-                      <>
-                        <motion.div
-                          className="w-4 h-4 border-2 border-surface-base border-t-transparent rounded-full"
-                          animate={{ rotate: 360 }}
-                          transition={{ repeat: Infinity, duration: 0.7, ease: 'linear' }}
-                        />
-                        <span>Verificando acceso...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Icon name="shield-check" size={16} />
-                        <span>Acceder al Sistema</span>
-                      </>
-                    )}
-                  </button>
-                </motion.div>
-
-                {/* Demo Access Button */}
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({ email: 'admin@devsecops.com', password: 'demo123!' })
-                      // We use a small timeout to let the state update before submit if we wanted to auto-submit,
-                      // but better to just let the user see it and click again or auto-submit now:
-                      setTimeout(() => {
-                        const form = document.querySelector('form')
-                        if (form) form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
-                      }, 100)
-                    }}
-                    className="w-full flex items-center justify-center gap-2.5 py-2.5 text-[11px] font-medium text-accent-cyan border border-accent-cyan/20 rounded-lg hover:bg-accent-cyan/5 transition-all uppercase tracking-wider"
-                  >
-                    <Icon name="play" size={14} />
-                    Acceder modo Demo (Vista Rápida)
-                  </button>
-                </motion.div>
-              </form>
+                  </motion.div>
+                </form>
+              ) : (
+                <div className="space-y-5 text-center">
+                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.35 }}>
+                    <div className="w-16 h-16 mx-auto bg-accent-cyan/10 text-accent-cyan rounded-2xl flex items-center justify-center border border-accent-cyan/20 mb-4">
+                      <Icon name="play" size={32} />
+                    </div>
+                    <h3 className="text-[14px] text-text-primary font-bold mb-1">Entorno de Demostración</h3>
+                    <p className="text-[11px] text-text-secondary mb-4">Explora el dashboard del SOC sin necesidad de conectar servidores físicos. Datos simulados.</p>
+                  </motion.div>
+                  
+                  <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                    <button type="button" onClick={handleDemoLogin} disabled={isLoading}
+                      className={`btn-primary w-full flex items-center justify-center gap-2.5 py-3 text-sm ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                      {isLoading ? (
+                        <>
+                          <motion.div className="w-4 h-4 border-2 border-surface-base border-t-transparent rounded-full" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.7, ease: 'linear' }} />
+                          <span>Iniciando Entorno...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icon name="zap" size={16} />
+                          <span>Iniciar Simulador Básico</span>
+                        </>
+                      )}
+                    </button>
+                  </motion.div>
+                </div>
+              )}
 
               {/* Footer */}
               <motion.div
@@ -325,9 +283,21 @@ const LoginPage = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.6 }}
               >
-                <p className="text-center text-text-muted text-[10px] tracking-wide">
-                  Acceso restringido. Contacta al administrador del SOC.
-                </p>
+                <div className="text-center space-y-3">
+                  {isDemoMode ? (
+                    <button type="button" onClick={() => setIsDemoMode(false)} className="text-[11px] text-accent-cyan hover:underline font-medium">
+                      Volver a Iniciar Sesión con mi cuenta
+                    </button>
+                  ) : (
+                    <p className="text-[11px] text-text-secondary">
+                      ¿No tienes una cuenta?{' '}
+                      <Link to="/register" className="text-accent-cyan hover:underline font-medium">Regístrate ahora</Link>
+                    </p>
+                  )}
+                  <p className="text-text-muted text-[10px] tracking-wide mt-2">
+                    Acceso protegido. Monitorización del SOC.
+                  </p>
+                </div>
               </motion.div>
             </div>
 

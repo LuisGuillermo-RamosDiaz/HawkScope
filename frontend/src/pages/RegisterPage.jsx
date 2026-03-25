@@ -59,7 +59,7 @@ const RegisterPage = () => {
         industry: form.industry,
         companySize: form.companySize,
       })
-      // Auto-login: store token + user, redirect to dashboard
+      // Auto-login: store token + user, redirect to setup
       login({
         token: result.token,
         email: result.user.email,
@@ -67,7 +67,7 @@ const RegisterPage = () => {
         apiKey: result.user.apiKey,
         name: result.user.name
       })
-      navigate('/dashboard')
+      navigate('/setup')
     } catch (error) {
       if (error.response?.status === 409) {
         setError('Este email ya está registrado. Intenta iniciar sesión.')
@@ -109,8 +109,8 @@ const RegisterPage = () => {
             <Link to="/" className="inline-flex items-center gap-2 mb-4">
               <img src={logo} alt="Logo" className="w-10 h-10 object-contain" />
             </Link>
-            <h1 className="text-2xl font-bold text-text-primary mb-1">{t('register.title')}</h1>
-            <p className="text-xs text-text-secondary">{t('register.subtitle')}</p>
+            <h1 className="text-2xl font-bold text-text-primary mb-1">Registrar Organización</h1>
+            <p className="text-xs text-text-secondary">Crea tu cuenta de HawkScope Enterprise</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -129,11 +129,11 @@ const RegisterPage = () => {
             {/* Company Name */}
             <div>
               <label className="block text-[10px] font-medium text-text-secondary mb-1.5 uppercase tracking-[0.15em]">
-                {t('register.companyName')}
+                Nombre de la Empresa
               </label>
               <div className="relative group">
                 <input name="companyName" type="text" required value={form.companyName} onChange={handleChange}
-                  className="input-field pl-10 pr-4" placeholder="Nombre de tu empresa" disabled={isLoading} autoComplete="off" />
+                  className="input-field pl-10 pr-4" placeholder="Ej. CyberTech Security" disabled={isLoading} autoComplete="off" />
                 <Icon name="building" size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-cyan transition-colors" />
               </div>
             </div>
@@ -141,7 +141,7 @@ const RegisterPage = () => {
             {/* Admin Email */}
             <div>
               <label className="block text-[10px] font-medium text-text-secondary mb-1.5 uppercase tracking-[0.15em]">
-                {t('register.adminEmail')}
+                Correo Electrónico Laboral
               </label>
               <div className="relative group">
                 <input name="email" type="email" required value={form.email} onChange={handleChange}
@@ -154,7 +154,7 @@ const RegisterPage = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[10px] font-medium text-text-secondary mb-1.5 uppercase tracking-[0.15em]">
-                  {t('register.password')}
+                  Contraseña
                 </label>
                 <div className="relative group">
                   <input name="password" type={showPassword ? 'text' : 'password'} required value={form.password} onChange={handleChange}
@@ -165,7 +165,7 @@ const RegisterPage = () => {
               </div>
               <div>
                 <label className="block text-[10px] font-medium text-text-secondary mb-1.5 uppercase tracking-[0.15em]">
-                  {t('register.confirmPassword')}
+                  Confirmar
                 </label>
                 <div className="relative group">
                   <input name="confirmPassword" type={showPassword ? 'text' : 'password'} required value={form.confirmPassword} onChange={handleChange}
@@ -239,7 +239,7 @@ const RegisterPage = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[10px] font-medium text-text-secondary mb-1.5 uppercase tracking-[0.15em]">
-                  {t('register.industry')}
+                  Sector de la Industria
                 </label>
                 <select name="industry" value={form.industry} onChange={handleChange} className="input-field py-2.5 px-3 text-xs" required disabled={isLoading}>
                   <option value="">Seleccionar...</option>
@@ -248,7 +248,7 @@ const RegisterPage = () => {
               </div>
               <div>
                 <label className="block text-[10px] font-medium text-text-secondary mb-1.5 uppercase tracking-[0.15em]">
-                  {t('register.companySize')}
+                  Tamaño de Empresa
                 </label>
                 <select name="companySize" value={form.companySize} onChange={handleChange} className="input-field py-2.5 px-3 text-xs" required disabled={isLoading}>
                   <option value="">Seleccionar...</option>
@@ -265,25 +265,25 @@ const RegisterPage = () => {
             )}
 
             <button type="submit" disabled={isLoading}
-              className={`btn-primary w-full flex items-center justify-center gap-2.5 py-3 text-sm ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}>
+              className={`btn-primary w-full flex items-center justify-center gap-2.5 py-3 text-sm flex-col mt-4 sm:flex-row ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}>
               {isLoading ? (
                 <>
                   <motion.div className="w-4 h-4 border-2 border-surface-base border-t-transparent rounded-full" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.7, ease: 'linear' }} />
-                  <span>Creando cuenta...</span>
+                  <span>Creando cuenta en plataforma...</span>
                 </>
               ) : (
                 <>
                   <Icon name="rocket" size={16} />
-                  <span>{t('register.submit')}</span>
+                  <span>Empezar Configuración Inicial</span>
                 </>
               )}
             </button>
           </form>
 
           <div className="mt-5 text-center">
-            <p className="text-xs text-text-muted">
-              {t('register.hasAccount')}{' '}
-              <Link to="/login" className="text-accent-cyan hover:underline">{t('register.loginLink')}</Link>
+            <p className="text-xs text-text-secondary">
+              ¿Ya tienes una cuenta en HawkScope?{' '}
+              <Link to="/login" className="text-accent-cyan hover:underline font-medium">Inicia Sesión aquí</Link>
             </p>
           </div>
         </div>
