@@ -352,8 +352,8 @@ SEND_INTERVAL=${send_interval}
 LOG_LEVEL=INFO
 EOF
 
-  # Permisos restrictivos — solo root puede leer la clave
-  chown root:root "$ENV_FILE"
+  # Permisos restrictivos — solo el agente puede leer la clave
+  chown "${AGENT_USER}:${AGENT_USER}" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   success ".env configurado en ${ENV_FILE} (permisos 600)."
 }

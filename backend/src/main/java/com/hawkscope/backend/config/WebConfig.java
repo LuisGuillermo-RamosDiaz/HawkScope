@@ -24,14 +24,18 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // El interceptor X-API-KEY SOLO protege el endpoint del agente
-        // Las rutas de auth y dashboard usan JWT, NO X-API-KEY
+        // El interceptor X-API-KEY estático NO debe proteger /agent/**
+        // porque AgentController hace su propia validación por organización.
+        // Solo se usa para rutas internas que necesiten una API key global.
         registry.addInterceptor(apiKeyInterceptor)
-                .addPathPatterns("/api/v1/agent/**")
+                .addPathPatterns("/api/v1/internal/**")
                 .excludePathPatterns(
                     "/api/v1/auth/**",
+                    "/api/v1/agent/**",
                     "/api/v1/dashboard/**",
                     "/api/v1/metrics/**",
+                    "/api/v1/audit/**",
+                    "/api/v1/security/**",
                     "/health"
                 );
     }
