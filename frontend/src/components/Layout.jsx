@@ -19,8 +19,8 @@ const notifColors = {
 }
 
 const ROLE_ACCESS = {
-  admin:    ['/dashboard', '/resources', '/kpis', '/audit', '/security', '/settings', '/users'],
-  operator: ['/dashboard', '/resources', '/kpis', '/security'],
+  admin:    ['/dashboard', '/resources', '/kpis', '/audit', '/security', '/settings', '/users', '/setup'],
+  operator: ['/dashboard', '/resources', '/kpis', '/security', '/setup'],
   viewer:   ['/dashboard', '/resources', '/kpis', '/audit'],
 }
 
@@ -99,6 +99,7 @@ const Layout = ({ children }) => {
     { path: '/kpis', label: t('nav.kpis'), icon: 'bar-chart', desc: t('nav.kpisDesc') },
     { path: '/audit', label: t('nav.audit'), icon: 'file-search', desc: t('nav.auditDesc') },
     { path: '/security', label: t('nav.security'), icon: 'shield', desc: t('nav.securityDesc') },
+    { path: '/setup', label: 'Agregar Servidor', icon: 'terminal', desc: 'Instalar agente en un nuevo servidor' },
     { path: '/settings', label: t('nav.settings'), icon: 'settings', desc: t('nav.settingsDesc') },
     { path: '/users', label: t('nav.users'), icon: 'users', desc: t('nav.usersDesc') },
   ], [t])
