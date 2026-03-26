@@ -76,6 +76,7 @@ const Layout = ({ children }) => {
   const { toasts, removeToast, showSuccess, showError } = useToast()
   
   const fileInputRef = useRef(null)
+  const userMenuRef = useRef(null)
   const [isUploading, setIsUploading] = useState(false)
   const { notifications, markAllRead, markAsRead } = useNotificationStore()
 
@@ -109,6 +110,18 @@ const Layout = ({ children }) => {
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false)
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [userMenuOpen])
 
   useEffect(() => {
     const tick = () => {
@@ -498,7 +511,7 @@ const Layout = ({ children }) => {
             </div>
 
             {/* User badge Dropdown Toggle */}
-            <div className="relative pl-3 border-l border-white/[0.06]">
+            <div className="relative pl-3 border-l border-white/[0.06]" ref={userMenuRef}>
               <button 
                 onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }}
                 className={`flex items-center gap-3 py-1 px-2 rounded-lg transition-all ${userMenuOpen ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'}`}
@@ -519,15 +532,13 @@ const Layout = ({ children }) => {
 
               <AnimatePresence>
                 {userMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                    <motion.div
-                      className="absolute right-0 top-full mt-2 w-64 z-50 rounded-xl overflow-hidden glass-card flex flex-col"
-                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                    >
+                  <motion.div
+                    className="absolute right-0 top-full mt-2 w-64 z-50 rounded-xl overflow-hidden flex flex-col bg-[#0f1117] border border-white/10 shadow-2xl shadow-black/60"
+                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                  >
                       <div className="p-4 border-b border-white/[0.06] flex items-center gap-3 bg-white/[0.01]">
                         <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 border border-white/10 outline outline-2 outline-white/5 bg-surface-3">
                           {user?.profilePictureUrl ? (
@@ -578,7 +589,6 @@ const Layout = ({ children }) => {
                         </button>
                       </div>
                     </motion.div>
-                  </>
                 )}
               </AnimatePresence>
             </div>
