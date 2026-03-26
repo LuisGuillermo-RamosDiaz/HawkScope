@@ -7,6 +7,7 @@ import MetricsChart from '../components/MetricsChart'
 import GlassCard from '../components/GlassCard'
 import StatusBadge from '../components/StatusBadge'
 import metricsService from '../services/metricsService'
+import reportsService from '../services/reportsService'
 import { useToast } from '../hooks/useToast'
 import Icon from '../components/icons/Icon'
 import { StaggerContainer, StaggerItem } from '../components/animations/StaggerContainer'
@@ -14,7 +15,8 @@ import { KpiCardSkeleton, ChartSkeleton } from '../components/Skeleton'
 
 const DashboardPage = () => {
   const [timeRange, setTimeRange] = useState('1h')
-  const { showError } = useToast()
+  const [isExporting, setIsExporting] = useState(false)
+  const { showError, showSuccess } = useToast()
   const queryClient = useQueryClient()
 
   // Métricas más recientes con polling cada 10s
@@ -90,6 +92,20 @@ const DashboardPage = () => {
     queryClient.invalidateQueries({ queryKey: ['historical'] })
   }
 
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      showSuccess('Creando reporte en AWS S3...')
+      const result = await reportsService.exportServers()
+      showSuccess('Reporte S3 listo. Descargando...')
+      window.open(result.url, '_blank')
+    } catch (error) {
+      showError('Error exportando reporte a AWS S3')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -138,6 +154,20 @@ const DashboardPage = () => {
                 </button>
               ))}
             </div>
+            <motion.button
+              onClick={handleExport}
+              className="btn-primary flex items-center gap-2 text-xs px-3 py-1.5"
+              style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#d8b4fe', borderColor: 'rgba(168, 85, 247, 0.3)' }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              disabled={isExporting || serverStatus.total === 0}
+              title="Exportar a AWS S3"
+            >
+              <motion.div animate={isExporting ? { y: [-2, 2, -2] } : {}} transition={{ repeat: isExporting ? Infinity : 0, duration: 1 }}>
+                <Icon name="download-cloud" size={13} />
+              </motion.div>
+              <span className="hidden sm:inline">{isExporting ? 'S3...' : 'Exportar S3'}</span>
+            </motion.button>
             <motion.button
               onClick={handleRefresh}
               className="btn-secondary flex items-center gap-2 text-xs px-3 py-1.5"

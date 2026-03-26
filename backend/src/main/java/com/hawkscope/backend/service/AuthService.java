@@ -47,7 +47,8 @@ public class AuthService {
                         user.getEmail(),
                         user.getRole(),
                         user.getFullName(),
-                        user.getOrganization().getApiKey()
+                        user.getOrganization().getApiKey(),
+                        user.getProfilePictureUrl()
                     );
                     return new LoginResponseDto(token, userInfo);
                 });
@@ -90,7 +91,8 @@ public class AuthService {
             user.getEmail(),
             user.getRole(),
             user.getFullName(),
-            org.getApiKey()
+            org.getApiKey(),
+            user.getProfilePictureUrl()
         ));
     }
 
@@ -132,7 +134,8 @@ public class AuthService {
             user.getEmail(),
             user.getRole(),
             user.getFullName(),
-            org.getApiKey()
+            org.getApiKey(),
+            user.getProfilePictureUrl()
         ));
     }
 
