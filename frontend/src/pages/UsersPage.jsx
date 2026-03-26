@@ -202,8 +202,8 @@ const UsersPage = () => {
                     <td className="px-5 py-3 text-[10px] text-text-muted font-mono">{u.lastAccess}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-1">
-                        {(isAdmin || user?.id === u.id) && (
-                          <button onClick={() => handleUploadClick(u.id)} className="p-1.5 rounded-lg text-text-muted hover:text-accent-cyan hover:bg-accent-cyan/5 transition-all" title="Subir foto de perfil a S3">
+                        {(isAdmin && user?.id !== u.id) && (
+                          <button onClick={() => handleUploadClick(u.id)} className="p-1.5 rounded-lg text-text-muted hover:text-accent-cyan hover:bg-accent-cyan/5 transition-all" title="Cambiar foto de este usuario (S3)">
                             <Icon name="upload-cloud" size={13} />
                           </button>
                         )}
