@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import useAuthStore from '../store/authStore'
 import useNotificationStore from '../store/notificationStore'
 import metricsService from '../services/metricsService'
+import usersService from '../services/usersService'
 import Toast from './Toast'
 import { useToast } from '../hooks/useToast'
 import Icon from './icons/Icon'
@@ -71,7 +72,10 @@ const Layout = ({ children }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
-  const { toasts, removeToast } = useToast()
+  const { toasts, removeToast, showSuccess, showError } = useToast()
+  
+  const fileInputRef = useRef(null)
+  const [isUploading, setIsUploading] = useState(false)
   const { notifications, markAllRead, markAsRead } = useNotificationStore()
 
   const unreadCount = notifications.filter(n => !n.read).length
@@ -80,6 +84,29 @@ const Layout = ({ children }) => {
     setShowLogoutModal(false)
     logout()
     navigate('/login')
+  }
+
+  const handleAvatarClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !user?.id) return
+
+    try {
+      setIsUploading(true)
+      const result = await usersService.uploadProfilePicture(user.id, file)
+      useAuthStore.getState().setUser({ ...user, profilePictureUrl: result.url })
+      showSuccess('Foto de perfil actualizada exitosamente')
+    } catch (error) {
+      showError('Error al subir la imagen')
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   useEffect(() => {
@@ -287,13 +314,28 @@ const Layout = ({ children }) => {
                 transition={{ duration: 0.15 }}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  {user?.profilePictureUrl ? (
-                    <img src={user.profilePictureUrl} alt="Profile" className="w-8 h-8 rounded-lg object-cover border border-white/[0.06] flex-shrink-0" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-cyan/15 to-accent-purple/15 border border-accent-cyan/15 flex items-center justify-center text-accent-cyan text-xs font-bold flex-shrink-0">
-                      {user?.email?.charAt(0).toUpperCase() || 'U'}
+                  <div 
+                    className="relative group cursor-pointer w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden"
+                    onClick={handleAvatarClick}
+                    title="Cambiar foto de perfil"
+                  >
+                    {user?.profilePictureUrl ? (
+                      <img src={user.profilePictureUrl} alt="Profile" className="w-full h-full object-cover border border-white/[0.06]" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-accent-cyan/15 to-accent-purple/15 border border-accent-cyan/15 flex items-center justify-center text-accent-cyan text-xs font-bold">
+                        {user?.email?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity border border-white/[0.06] rounded-lg">
+                      {isUploading ? (
+                        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                          <Icon name="refresh-cw" size={14} className="text-white" />
+                        </motion.div>
+                      ) : (
+                        <Icon name="upload-cloud" size={14} className="text-white" />
+                      )}
                     </div>
-                  )}
+                  </div>
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-text-primary truncate">
                       {user?.email || 'Usuario'}
@@ -468,17 +510,32 @@ const Layout = ({ children }) => {
             </div>
 
             {/* User badge */}
-            <div className="flex items-center gap-2 pl-3 border-l border-white/[0.06]">
+            <div className="flex items-center gap-3 pl-3 border-l border-white/[0.06]">
               <span className="text-[10px] text-text-secondary font-medium uppercase tracking-wider hidden sm:block">
                 {user?.role}
               </span>
-              {user?.profilePictureUrl ? (
-                <img src={user.profilePictureUrl} alt="Profile" className="w-7 h-7 rounded-lg object-cover border border-white/[0.06]" />
-              ) : (
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-surface-3 to-surface-4 border border-white/[0.06] flex items-center justify-center">
-                  <Icon name="user" size={13} className="text-text-secondary" />
+              <div 
+                className="relative group cursor-pointer w-7 h-7 rounded-lg overflow-hidden flex-shrink-0"
+                onClick={handleAvatarClick}
+                title="Cambiar foto de perfil"
+              >
+                {user?.profilePictureUrl ? (
+                  <img src={user.profilePictureUrl} alt="Profile" className="w-full h-full object-cover border border-white/[0.06]" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-surface-3 to-surface-4 border border-white/[0.06] flex items-center justify-center">
+                    <Icon name="user" size={13} className="text-text-secondary" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity border border-white/[0.06] rounded-lg">
+                  {isUploading ? (
+                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                      <Icon name="refresh-cw" size={12} className="text-white" />
+                    </motion.div>
+                  ) : (
+                    <Icon name="upload-cloud" size={12} className="text-white" />
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </header>
@@ -649,6 +706,7 @@ const Layout = ({ children }) => {
           </>
         )}
       </AnimatePresence>
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
     </div>
   )
 }
