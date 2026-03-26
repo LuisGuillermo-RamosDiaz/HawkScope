@@ -11,6 +11,7 @@ import Toast from './Toast'
 import { useToast } from '../hooks/useToast'
 import Icon from './icons/Icon'
 import logo from '../assets/logo.svg'
+import ProfilePictureModal from './ProfilePictureModal'
 
 const notifColors = {
   critical: { dot: 'bg-status-critical', text: 'text-status-critical' },
@@ -75,9 +76,8 @@ const Layout = ({ children }) => {
   const { user, logout } = useAuthStore()
   const { toasts, removeToast, showSuccess, showError } = useToast()
   
-  const fileInputRef = useRef(null)
   const userMenuRef = useRef(null)
-  const [isUploading, setIsUploading] = useState(false)
+  const [showPfpModal, setShowPfpModal] = useState(false)
   const { notifications, markAllRead, markAsRead } = useNotificationStore()
 
   const unreadCount = notifications.filter(n => !n.read).length
@@ -89,26 +89,7 @@ const Layout = ({ children }) => {
   }
 
   const handleAvatarClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click()
-    }
-  }
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file || !user?.id) return
-
-    try {
-      setIsUploading(true)
-      const result = await usersService.uploadProfilePicture(user.id, file)
-      useAuthStore.getState().setUser({ ...user, profilePictureUrl: result.url })
-      showSuccess('Foto de perfil actualizada exitosamente')
-    } catch (error) {
-      showError('Error al subir la imagen')
-    } finally {
-      setIsUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
+    setShowPfpModal(true)
   }
 
   useEffect(() => {
@@ -564,11 +545,6 @@ const Layout = ({ children }) => {
                             <Icon name="camera" size={14} className="text-text-muted group-hover:text-text-primary transition-colors" />
                             <span>Cambiar foto de perfil</span>
                           </div>
-                          {isUploading && (
-                            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                              <Icon name="refresh-cw" size={12} className="text-accent-cyan" />
-                            </motion.div>
-                          )}
                         </button>
                         <button 
                           onClick={() => { setUserMenuOpen(false); navigate('/settings'); }} 
@@ -761,7 +737,13 @@ const Layout = ({ children }) => {
           </>
         )}
       </AnimatePresence>
-      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+
+      {/* ========== PROFILE PIC MODAL ========== */}
+      <ProfilePictureModal 
+        isOpen={showPfpModal} 
+        onClose={() => setShowPfpModal(false)} 
+        targetUserId={user?.id} 
+      />
     </div>
   )
 }

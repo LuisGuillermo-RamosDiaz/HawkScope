@@ -8,6 +8,7 @@ import useAuthStore from '../store/authStore'
 import { useToast } from '../hooks/useToast'
 import { StaggerContainer, StaggerItem } from '../components/animations/StaggerContainer'
 import usersService from '../services/usersService'
+import ProfilePictureModal from '../components/ProfilePictureModal'
 
 const roleColors = {
   admin: 'text-accent-cyan bg-accent-cyan/8 border-accent-cyan/15',
@@ -35,8 +36,8 @@ const UsersPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inviteLink, setInviteLink] = useState('')
   
-  const fileInputRef = useRef(null)
-  const [uploadingId, setUploadingId] = useState(null)
+  const [showPfpModal, setShowPfpModal] = useState(false)
+  const [targetPfpUserId, setTargetPfpUserId] = useState(null)
 
   const fetchUsers = async () => {
     try {
@@ -84,32 +85,9 @@ const UsersPage = () => {
   }
 
   const handleUploadClick = (id) => {
-    setUploadingId(id);
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !uploadingId) return;
-
-    try {
-      showSuccess('Subiendo foto a S3...');
-      const result = await usersService.uploadProfilePicture(uploadingId, file);
-      
-      setUsers(prev => prev.map(u => u.id === uploadingId ? { ...u, profilePictureUrl: result.url } : u));
-      
-      if (user?.id === uploadingId) {
-         useAuthStore.getState().setUser({ ...user, profilePictureUrl: result.url });
-      }
-      
-      showSuccess('Foto de perfil actualizada exitosamente');
-    } catch (error) {
-      showError('Error al subir la imagen');
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setUploadingId(null);
-    }
-  };
+    setTargetPfpUserId(id)
+    setShowPfpModal(true)
+  }
 
   const handleDelete = async (id) => {
     try {
@@ -331,7 +309,13 @@ const UsersPage = () => {
           </>
         )}
       </AnimatePresence>
-      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+
+      <ProfilePictureModal 
+        isOpen={showPfpModal} 
+        onClose={() => { setShowPfpModal(false); setTargetPfpUserId(null); }} 
+        targetUserId={targetPfpUserId} 
+        onSuccess={() => fetchUsers()} 
+      />
     </StaggerContainer>
   )
 }
