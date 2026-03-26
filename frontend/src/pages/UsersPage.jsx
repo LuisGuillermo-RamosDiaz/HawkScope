@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import GlassCard from '../components/GlassCard'
@@ -34,6 +34,9 @@ const UsersPage = () => {
   const [form, setForm] = useState({ name: '', email: '', role: 'viewer' })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inviteLink, setInviteLink] = useState('')
+  
+  const fileInputRef = useRef(null)
+  const [uploadingId, setUploadingId] = useState(null)
 
   const fetchUsers = async () => {
     try {
@@ -79,6 +82,34 @@ const UsersPage = () => {
       setIsSubmitting(false)
     }
   }
+
+  const handleUploadClick = (id) => {
+    setUploadingId(id);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadingId) return;
+
+    try {
+      showSuccess('Subiendo foto a S3...');
+      const result = await usersService.uploadProfilePicture(uploadingId, file);
+      
+      setUsers(prev => prev.map(u => u.id === uploadingId ? { ...u, profilePictureUrl: result.url } : u));
+      
+      if (user?.id === uploadingId) {
+         useAuthStore.getState().setUser({ ...user, profilePictureUrl: result.url });
+      }
+      
+      showSuccess('Foto de perfil actualizada exitosamente');
+    } catch (error) {
+      showError('Error al subir la imagen');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setUploadingId(null);
+    }
+  };
 
   const handleDelete = async (id) => {
     try {
@@ -145,9 +176,13 @@ const UsersPage = () => {
                   >
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-accent-purple/10 border border-white/[0.06] flex items-center justify-center text-[10px] font-bold text-accent-cyan uppercase">
-                          {u.fullName?.charAt(0) || u.email?.charAt(0)}
-                        </div>
+                        {u.profilePictureUrl ? (
+                          <img src={u.profilePictureUrl} alt={u.fullName} className="w-7 h-7 rounded-lg object-cover border border-white/[0.06]" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-accent-purple/10 border border-white/[0.06] flex items-center justify-center text-[10px] font-bold text-accent-cyan uppercase">
+                            {u.fullName?.charAt(0) || u.email?.charAt(0)}
+                          </div>
+                        )}
                         <span className="text-xs text-text-primary font-medium">{u.fullName || 'Usuario'}</span>
                       </div>
                     </td>
@@ -166,13 +201,18 @@ const UsersPage = () => {
                     </td>
                     <td className="px-5 py-3 text-[10px] text-text-muted font-mono">{u.lastAccess}</td>
                     <td className="px-5 py-3">
-                      {isAdmin && u.email !== user?.email && (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => setShowDeleteModal(u.id)} className="p-1.5 rounded-lg text-text-muted hover:text-status-critical hover:bg-status-critical/5 transition-all">
+                      <div className="flex items-center gap-1">
+                        {(isAdmin || user?.id === u.id) && (
+                          <button onClick={() => handleUploadClick(u.id)} className="p-1.5 rounded-lg text-text-muted hover:text-accent-cyan hover:bg-accent-cyan/5 transition-all" title="Subir foto de perfil a S3">
+                            <Icon name="upload-cloud" size={13} />
+                          </button>
+                        )}
+                        {isAdmin && u.email !== user?.email && (
+                          <button onClick={() => setShowDeleteModal(u.id)} className="p-1.5 rounded-lg text-text-muted hover:text-status-critical hover:bg-status-critical/5 transition-all" title="Eliminar usuario">
                             <Icon name="trash-2" size={13} />
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </motion.tr>
                 ))}
@@ -290,6 +330,7 @@ const UsersPage = () => {
           </>
         )}
       </AnimatePresence>
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
     </StaggerContainer>
   )
 }

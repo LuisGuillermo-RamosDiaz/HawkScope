@@ -8,5 +8,6 @@ public record UserDto(
     String fullName,
     String role,
     String status,
-    String lastAccess // Placeholder for now, can map from last heartbeat if it were an agent, but for users, we just put "-" or created_at
+    String lastAccess,
+    String profilePictureUrl
 ) {}

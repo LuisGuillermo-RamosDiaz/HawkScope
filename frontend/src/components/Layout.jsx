@@ -287,9 +287,13 @@ const Layout = ({ children }) => {
                 transition={{ duration: 0.15 }}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-cyan/15 to-accent-purple/15 border border-accent-cyan/15 flex items-center justify-center text-accent-cyan text-xs font-bold flex-shrink-0">
-                    {user?.email?.charAt(0).toUpperCase() || 'U'}
-                  </div>
+                  {user?.profilePictureUrl ? (
+                    <img src={user.profilePictureUrl} alt="Profile" className="w-8 h-8 rounded-lg object-cover border border-white/[0.06] flex-shrink-0" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-cyan/15 to-accent-purple/15 border border-accent-cyan/15 flex items-center justify-center text-accent-cyan text-xs font-bold flex-shrink-0">
+                      {user?.email?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-text-primary truncate">
                       {user?.email || 'Usuario'}
@@ -468,9 +472,13 @@ const Layout = ({ children }) => {
               <span className="text-[10px] text-text-secondary font-medium uppercase tracking-wider hidden sm:block">
                 {user?.role}
               </span>
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-surface-3 to-surface-4 border border-white/[0.06] flex items-center justify-center">
-                <Icon name="user" size={13} className="text-text-secondary" />
-              </div>
+              {user?.profilePictureUrl ? (
+                <img src={user.profilePictureUrl} alt="Profile" className="w-7 h-7 rounded-lg object-cover border border-white/[0.06]" />
+              ) : (
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-surface-3 to-surface-4 border border-white/[0.06] flex items-center justify-center">
+                  <Icon name="user" size={13} className="text-text-secondary" />
+                </div>
+              )}
             </div>
           </div>
         </header>

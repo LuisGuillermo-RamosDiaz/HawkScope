@@ -19,9 +19,18 @@ const usersService = {
     return response.data
   },
 
-  // Aceptar invitacion (esto en realidad llama a authController /accept-invite)
   acceptInvite: async (data) => {
     const response = await api.post('/api/v1/auth/accept-invite', data)
+    return response.data
+  },
+
+  // Subir foto de perfil a S3
+  uploadProfilePicture: async (userId, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/api/v1/users/${userId}/profile-picture`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
     return response.data
   }
 }

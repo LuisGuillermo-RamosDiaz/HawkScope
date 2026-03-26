@@ -37,7 +37,8 @@ public class UserService {
             u.getFullName(),
             u.getRole(),
             u.getStatus(),
-            u.getCreatedAt() != null ? u.getCreatedAt().toString() : "-"
+            u.getCreatedAt() != null ? u.getCreatedAt().toString() : "-",
+            u.getProfilePictureUrl()
         )).collect(Collectors.toList());
     }
 
