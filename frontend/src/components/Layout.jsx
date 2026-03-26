@@ -69,6 +69,7 @@ const Layout = ({ children }) => {
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifExpanded, setNotifExpanded] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
@@ -314,11 +315,7 @@ const Layout = ({ children }) => {
                 transition={{ duration: 0.15 }}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div 
-                    className="relative group cursor-pointer w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden"
-                    onClick={handleAvatarClick}
-                    title="Cambiar foto de perfil"
-                  >
+                  <div className="w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden relative">
                     {user?.profilePictureUrl ? (
                       <img src={user.profilePictureUrl} alt="Profile" className="w-full h-full object-cover border border-white/[0.06]" />
                     ) : (
@@ -326,15 +323,6 @@ const Layout = ({ children }) => {
                         {user?.email?.charAt(0).toUpperCase() || 'U'}
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity border border-white/[0.06] rounded-lg">
-                      {isUploading ? (
-                        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                          <Icon name="refresh-cw" size={14} className="text-white" />
-                        </motion.div>
-                      ) : (
-                        <Icon name="upload-cloud" size={14} className="text-white" />
-                      )}
-                    </div>
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-text-primary truncate">
@@ -509,33 +497,90 @@ const Layout = ({ children }) => {
               </AnimatePresence>
             </div>
 
-            {/* User badge */}
-            <div className="flex items-center gap-3 pl-3 border-l border-white/[0.06]">
-              <span className="text-[10px] text-text-secondary font-medium uppercase tracking-wider hidden sm:block">
-                {user?.role}
-              </span>
-              <div 
-                className="relative group cursor-pointer w-7 h-7 rounded-lg overflow-hidden flex-shrink-0"
-                onClick={handleAvatarClick}
-                title="Cambiar foto de perfil"
+            {/* User badge Dropdown Toggle */}
+            <div className="relative pl-3 border-l border-white/[0.06]">
+              <button 
+                onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }}
+                className={`flex items-center gap-3 py-1 px-2 rounded-lg transition-all ${userMenuOpen ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'}`}
               >
-                {user?.profilePictureUrl ? (
-                  <img src={user.profilePictureUrl} alt="Profile" className="w-full h-full object-cover border border-white/[0.06]" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-surface-3 to-surface-4 border border-white/[0.06] flex items-center justify-center">
-                    <Icon name="user" size={13} className="text-text-secondary" />
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity border border-white/[0.06] rounded-lg">
-                  {isUploading ? (
-                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                      <Icon name="refresh-cw" size={12} className="text-white" />
-                    </motion.div>
+                <span className="text-[10px] text-text-secondary font-medium uppercase tracking-wider hidden sm:block">
+                  {user?.role}
+                </span>
+                <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
+                  {user?.profilePictureUrl ? (
+                    <img src={user.profilePictureUrl} alt="Profile" className="w-full h-full object-cover border border-white/[0.06]" />
                   ) : (
-                    <Icon name="upload-cloud" size={12} className="text-white" />
+                    <div className="w-full h-full bg-gradient-to-br from-surface-3 to-surface-4 border border-white/[0.06] flex items-center justify-center">
+                      <Icon name="user" size={13} className="text-text-secondary" />
+                    </div>
                   )}
                 </div>
-              </div>
+              </button>
+
+              <AnimatePresence>
+                {userMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                    <motion.div
+                      className="absolute right-0 top-full mt-2 w-64 z-50 rounded-xl overflow-hidden glass-card flex flex-col"
+                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <div className="p-4 border-b border-white/[0.06] flex items-center gap-3 bg-white/[0.01]">
+                        <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 border border-white/10 outline outline-2 outline-white/5 bg-surface-3">
+                          {user?.profilePictureUrl ? (
+                            <img src={user.profilePictureUrl} alt="Profile" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-accent-cyan font-bold text-lg">
+                              {user?.email?.charAt(0).toUpperCase() || 'U'}
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-text-primary truncate">{user?.email}</p>
+                          <p className="text-[10px] text-accent-cyan uppercase tracking-wider font-medium">{user?.role}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="p-2 space-y-1">
+                        <button 
+                          onClick={() => { setUserMenuOpen(false); handleAvatarClick(); }} 
+                          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors group"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Icon name="camera" size={14} className="text-text-muted group-hover:text-text-primary transition-colors" />
+                            <span>Cambiar foto de perfil</span>
+                          </div>
+                          {isUploading && (
+                            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                              <Icon name="refresh-cw" size={12} className="text-accent-cyan" />
+                            </motion.div>
+                          )}
+                        </button>
+                        <button 
+                          onClick={() => { setUserMenuOpen(false); navigate('/settings'); }} 
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors group"
+                        >
+                          <Icon name="settings" size={14} className="text-text-muted group-hover:text-text-primary transition-colors" />
+                          <span>Configuración</span>
+                        </button>
+                      </div>
+                      
+                      <div className="p-2 border-t border-white/[0.06]">
+                        <button 
+                          onClick={() => { setUserMenuOpen(false); handleLogout(); }} 
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-status-critical hover:bg-status-critical/10 transition-colors"
+                        >
+                          <Icon name="log-out" size={14} />
+                          <span>Cerrar sesión</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </header>
