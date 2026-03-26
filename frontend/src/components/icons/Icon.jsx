@@ -61,6 +61,7 @@ const iconMap = {
   'download-cloud': Icons.DownloadCloud,
   'upload': Icons.Upload,
   'upload-cloud': Icons.UploadCloud,
+  'camera': Icons.Camera,
   'filter': Icons.Filter,
   'calendar': Icons.Calendar,
   'globe': Icons.Globe,

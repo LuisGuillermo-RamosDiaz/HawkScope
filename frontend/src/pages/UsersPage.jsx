@@ -201,14 +201,15 @@ const UsersPage = () => {
                     </td>
                     <td className="px-5 py-3 text-[10px] text-text-muted font-mono">{u.lastAccess}</td>
                     <td className="px-5 py-3">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
                         {(isAdmin && user?.id !== u.id) && (
-                          <button onClick={() => handleUploadClick(u.id)} className="p-1.5 rounded-lg text-text-muted hover:text-accent-cyan hover:bg-accent-cyan/5 transition-all" title="Cambiar foto de este usuario (S3)">
-                            <Icon name="upload-cloud" size={13} />
+                          <button onClick={() => handleUploadClick(u.id)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-white/5 bg-white/5 hover:bg-accent-cyan/10 hover:border-accent-cyan/20 text-text-secondary hover:text-accent-cyan transition-all text-[11px] font-medium" title="Cambiar foto de este usuario (S3)">
+                            <Icon name="camera" size={12} />
+                            <span>Cambiar Foto</span>
                           </button>
                         )}
                         {isAdmin && u.email !== user?.email && (
-                          <button onClick={() => setShowDeleteModal(u.id)} className="p-1.5 rounded-lg text-text-muted hover:text-status-critical hover:bg-status-critical/5 transition-all" title="Eliminar usuario">
+                          <button onClick={() => setShowDeleteModal(u.id)} className="p-1.5 rounded-md border border-white/5 bg-white/5 text-text-muted hover:text-status-critical hover:bg-status-critical/10 hover:border-status-critical/20 transition-all" title="Eliminar usuario">
                             <Icon name="trash-2" size={13} />
                           </button>
                         )}
