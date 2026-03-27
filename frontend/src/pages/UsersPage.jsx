@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import GlassCard from '../components/GlassCard'
@@ -275,7 +275,7 @@ const UsersPage = () => {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-text-primary">¡Invitación generada!</p>
-                        <p className="text-[10px] text-text-muted">El usuario aparece como "Invitado" hasta que acepte.</p>
+                        <p className="text-[10px] text-text-muted">El usuario aparece como &ldquo;Invitado&rdquo; hasta que acepte.</p>
                       </div>
                     </div>
 
