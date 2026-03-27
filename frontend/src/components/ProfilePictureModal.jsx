@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import Icon from './icons/Icon'
 import usersService from '../services/usersService'
@@ -108,7 +109,7 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
     }
   }
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -294,7 +295,8 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 
