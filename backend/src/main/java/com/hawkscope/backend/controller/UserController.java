@@ -67,6 +67,19 @@ public class UserController {
         }
     }
 
+    @PostMapping("/{id}/regenerate-invite")
+    public ResponseEntity<?> regenerateInvite(@RequestHeader("Authorization") String authHeader, @PathVariable UUID id) {
+        try {
+            UUID orgId = getOrgId(authHeader);
+            String token = userService.regenerateInviteToken(id, orgId);
+            return ResponseEntity.ok(Map.of("inviteToken", token));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Internal server error"));
+        }
+    }
+
     @PostMapping("/{id}/profile-picture")
     public ResponseEntity<?> uploadProfilePicture(
             @RequestHeader("Authorization") String authHeader,

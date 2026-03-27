@@ -64,6 +64,18 @@ public class UserService {
         return jwtService.generateInviteToken(user.getEmail(), user.getRole(), org.getId().toString());
     }
 
+    public String regenerateInviteToken(UUID userId, UUID orgId) {
+        User user = userRepository.findById(userId)
+                .filter(u -> u.getOrganization().getId().equals(orgId))
+                .orElseThrow(() -> new RuntimeException("User not found or access denied"));
+
+        if (!"invited".equals(user.getStatus())) {
+            throw new RuntimeException("This user has already accepted the invitation");
+        }
+
+        return jwtService.generateInviteToken(user.getEmail(), user.getRole(), orgId.toString());
+    }
+
     public void deleteUser(UUID userId, UUID orgId) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isPresent() && userOpt.get().getOrganization().getId().equals(orgId)) {
