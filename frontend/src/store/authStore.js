@@ -12,14 +12,22 @@ const useAuthStore = create(
       login: (userData) => {
         set({
           user: {
+            id: userData.id,
             email: userData.email,
             role: userData.role,
             token: userData.token,
             apiKey: userData.apiKey,
-            name: userData.name
+            name: userData.name,
+            profilePictureUrl: userData.profilePictureUrl || null
           },
           isAuthenticated: true
         })
+      },
+      
+      setUser: (updatedUser) => {
+        const current = get().user
+        if (!current) return
+        set({ user: { ...current, ...updatedUser } })
       },
       
       logout: () => {

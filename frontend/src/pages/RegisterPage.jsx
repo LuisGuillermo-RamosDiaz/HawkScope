@@ -61,11 +61,13 @@ const RegisterPage = () => {
       })
       // Auto-login: store token + user, redirect to setup
       login({
+        id: result.user.id,
         token: result.token,
         email: result.user.email,
         role: result.user.role,
         apiKey: result.user.apiKey,
-        name: result.user.name
+        name: result.user.name,
+        profilePictureUrl: result.user.profilePictureUrl
       })
       navigate('/setup')
     } catch (error) {

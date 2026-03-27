@@ -44,11 +44,13 @@ const LoginPage = () => {
     try {
       const response = await authService.login(formData)
       login({
+        id: response.user.id,
         email: response.user.email,
         role: response.user.role,
         token: response.token,
         apiKey: response.user.apiKey,
-        name: response.user.name
+        name: response.user.name,
+        profilePictureUrl: response.user.profilePictureUrl
       })
 
       showSuccess('Acceso concedido - Bienvenido al SOC')
