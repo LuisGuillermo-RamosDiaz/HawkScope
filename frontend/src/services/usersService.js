@@ -32,6 +32,12 @@ const usersService = {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     return response.data
+  },
+
+  // Regenerar enlace de invitación
+  regenerateInvite: async (userId) => {
+    const response = await api.post(`/api/v1/users/${userId}/regenerate-invite`)
+    return response.data
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import GlassCard from '../components/GlassCard'
@@ -26,6 +26,7 @@ const UsersPage = () => {
   const { t } = useTranslation()
   const { user } = useAuthStore()
   const { showSuccess, showError } = useToast()
+  const [linkCopied, setLinkCopied] = useState(false)
   
   const [users, setUsers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -89,6 +90,18 @@ const UsersPage = () => {
     setShowPfpModal(true)
   }
 
+  const handleResendInvite = async (u) => {
+    try {
+      const result = await usersService.regenerateInvite(u.id)
+      const generatedLink = `${window.location.origin}/invite/${result.inviteToken}`
+      setInviteLink(generatedLink)
+      setForm({ name: u.fullName || '', email: u.email || '', role: u.role || 'viewer' })
+      setShowModal(true)
+    } catch (error) {
+      showError(error.response?.data?.message || 'Error al regenerar invitación')
+    }
+  }
+
   const handleDelete = async (id) => {
     try {
       await usersService.deleteUser(id)
@@ -103,7 +116,9 @@ const UsersPage = () => {
   const copyLink = () => {
     if (inviteLink) {
       navigator.clipboard.writeText(inviteLink)
+      setLinkCopied(true)
       showSuccess('Enlace copiado al portapapeles')
+      setTimeout(() => setLinkCopied(false), 2500)
     }
   }
 
@@ -180,6 +195,12 @@ const UsersPage = () => {
                     <td className="px-5 py-3 text-[10px] text-text-muted font-mono">{u.lastAccess}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
+                        {isAdmin && u.status === 'invited' && (
+                          <button onClick={() => handleResendInvite(u)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-white/5 bg-white/5 hover:bg-accent-purple/10 hover:border-accent-purple/20 text-text-secondary hover:text-accent-purple transition-all text-[11px] font-medium" title="Regenerar enlace de invitación">
+                            <Icon name="send" size={12} />
+                            <span>Reenviar</span>
+                          </button>
+                        )}
                         {(isAdmin && user?.id !== u.id) && (
                           <button onClick={() => handleUploadClick(u.id)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-white/5 bg-white/5 hover:bg-accent-cyan/10 hover:border-accent-cyan/20 text-text-secondary hover:text-accent-cyan transition-all text-[11px] font-medium" title="Cambiar foto de este usuario (S3)">
                             <Icon name="camera" size={12} />
@@ -247,22 +268,49 @@ const UsersPage = () => {
                   </div>
                   </>
                 ) : (
-                  <div className="text-center">
-                    <div className="w-12 h-12 mx-auto bg-status-healthy/10 text-status-healthy rounded-full flex items-center justify-center mb-3">
-                      <Icon name="check" size={24} />
+                  <div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-status-healthy/15 text-status-healthy rounded-full flex items-center justify-center flex-shrink-0">
+                        <Icon name="check" size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-text-primary">¡Invitación generada!</p>
+                        <p className="text-[10px] text-text-muted">El usuario aparece como &ldquo;Invitado&rdquo; hasta que acepte.</p>
+                      </div>
                     </div>
-                    <p className="text-sm text-text-primary mb-2">¡Invitación generada!</p>
-                    <p className="text-xs text-text-secondary mb-4">Envía este enlace seguro a tu compañero para que elija su contraseña.</p>
-                    
-                    <div className="flex items-center gap-2 bg-black/40 p-2 rounded border border-white/10 mb-5">
-                      <input type="text" readOnly value={inviteLink} className="bg-transparent text-[10px] text-text-muted w-full outline-none" />
-                      <button onClick={copyLink} className="p-1.5 bg-white/5 hover:bg-white/10 rounded text-accent-cyan transition-colors">
-                        <Icon name="copy" size={14} />
-                      </button>
+
+                    <div className="bg-[#0a0c10] rounded-lg border border-white/[0.06] p-3 mb-4">
+                      <p className="text-[9px] text-text-muted uppercase tracking-widest font-bold mb-2">Enlace de activación</p>
+                      <div className="flex items-center gap-2 bg-black/40 p-2 rounded border border-white/10">
+                        <input type="text" readOnly value={inviteLink} className="bg-transparent text-[10px] text-accent-cyan/80 w-full outline-none font-mono" />
+                        <button onClick={copyLink} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-medium transition-all flex-shrink-0 ${
+                          linkCopied 
+                            ? 'bg-status-healthy/15 text-status-healthy border border-status-healthy/20' 
+                            : 'bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20 hover:bg-accent-cyan/20'
+                        }`}>
+                          <Icon name={linkCopied ? 'check' : 'copy'} size={12} />
+                          <span>{linkCopied ? '¡Copiado!' : 'Copiar'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-accent-blue/5 border border-accent-blue/10 rounded-lg p-3 mb-4">
+                      <div className="flex items-start gap-2">
+                        <Icon name="info" size={13} className="text-accent-blue mt-0.5 flex-shrink-0" />
+                        <div className="text-[11px] text-text-secondary leading-relaxed">
+                          <strong className="text-text-primary block mb-1">¿Cómo acepta la invitación?</strong>
+                          <ol className="list-decimal list-inside space-y-0.5">
+                            <li>Copia el enlace de arriba</li>
+                            <li>Envíalo al invitado por correo, chat, etc.</li>
+                            <li>El invitado abre el enlace y crea su contraseña</li>
+                            <li>Su cuenta se activa automáticamente</li>
+                          </ol>
+                        </div>
+                      </div>
                     </div>
                     
-                    <button onClick={() => setShowModal(false)} className="btn-primary w-full text-sm py-2">
-                      Cerrar
+                    <button onClick={() => { setShowModal(false); setLinkCopied(false); }} className="btn-primary w-full text-sm py-2">
+                      Entendido
                     </button>
                   </div>
                 )}
