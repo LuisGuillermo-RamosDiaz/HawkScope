@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
+    private final UserRepository userRepository;
+    private final OrganizationRepository organizationRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
@@ -105,5 +107,26 @@ public class UserService {
         } else {
             throw new RuntimeException("User not found or access denied");
         }
+    }
+
+    public void updateUser(UUID userId, InviteUserDto request, UUID orgId) {
+        User user = userRepository.findById(userId)
+                .filter(u -> u.getOrganization().getId().equals(orgId))
+                .orElseThrow(() -> new RuntimeException("User not found or access denied"));
+
+        user.setFullName(request.name());
+        user.setRole(request.role());
+        userRepository.save(user);
+
+        // Audit Logging Requirement
+        auditService.log(
+            orgId.toString(),
+            null,
+            "Usuario editado",
+            "User",
+            userId.toString(),
+            user.getEmail(),
+            "{\"message\": \"Actualización de datos: Nombre y Rol modificados.\"}"
+        );
     }
 }

@@ -15,6 +15,7 @@ const AgentSetupPage = () => {
   const [connecting, setConnecting] = useState(false)
   const [connected, setConnected] = useState(false)
   const [initialServerCount, setInitialServerCount] = useState(null)
+  const [startTime, setStartTime] = useState(null)
 
   const backendUrl = import.meta.env.VITE_API_URL || 'https://hawkscope-backend.onrender.com/api'
   // El endpoint real del agente es /api/v1/agent/metrics
@@ -69,16 +70,29 @@ const AgentSetupPage = () => {
     let interval = null
     if (step === 2 && !connected) {
       setConnecting(true)
+      if (!startTime) setStartTime(Date.now())
       
-      console.log('HawkScope: Iniciando detección por contador (Polling V1)...')
+      console.log('HawkScope: Iniciando detección híbrida (V3 - Conteo + Pulso)...')
 
       interval = setInterval(async () => {
         try {
-          const { data } = await api.get('/api/v1/dashboard/summary')
-          const currentCount = data.totalServers || 0
+          const { data } = await api.get('/api/v1/metrics/servers')
+          const servers = data.data || []
+          const currentCount = servers.length
           
-          if (initialServerCount !== null && currentCount > initialServerCount) {
-            console.log('HawkScope: ¡Nuevo servidor detectado!')
+          // Caso 1: Nuevo servidor (Conteo)
+          const isNewServerCount = initialServerCount !== null && currentCount > initialServerCount
+          
+          // Caso 2: Re-instalación en servidor existente (Pulso fresco)
+          const hasFreshHeartbeat = servers.some(s => {
+            if (!s.last_heartbeat) return false
+            const hbTime = new Date(s.last_heartbeat).getTime()
+            // Margen de 5 seg para sincronía de relojes
+            return hbTime > (startTime - 5000)
+          })
+
+          if (isNewServerCount || hasFreshHeartbeat) {
+            console.log('HawkScope: ¡Señal recibida con éxito! (Híbrido V3)')
             setConnected(true)
             setConnecting(false)
             clearInterval(interval)
@@ -94,7 +108,7 @@ const AgentSetupPage = () => {
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [step, connected, initialServerCount])
+  }, [step, connected, initialServerCount, startTime])
 
   const steps = [
     { num: 1, title: t('agentSetup.step1Title'), desc: t('agentSetup.step1Desc') },

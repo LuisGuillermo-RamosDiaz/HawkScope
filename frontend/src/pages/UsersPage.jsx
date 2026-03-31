@@ -60,6 +60,7 @@ const UsersPage = () => {
   
   const [showPfpModal, setShowPfpModal] = useState(false)
   const [targetPfpUserId, setTargetPfpUserId] = useState(null)
+  const [editUserId, setEditUserId] = useState(null)
 
   const fetchUsers = async () => {
     try {
@@ -79,25 +80,44 @@ const UsersPage = () => {
   const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
 
   const openCreate = () => {
+    setEditUserId(null)
     setForm({ name: '', email: '', role: 'viewer' })
     setInviteLink('')
     setShowModal(true)
   }
 
-  const handleInvite = async () => {
+  const openEdit = (u) => {
+    setEditUserId(u.id)
+    setForm({ name: u.fullName || '', email: u.email || '', role: u.role || 'viewer' })
+    setInviteLink('')
+    setShowModal(true)
+  }
+
+  const handleInviteOrUpdate = async () => {
     setIsSubmitting(true)
     try {
-      const result = await usersService.inviteUser({
-        name: form.name,
-        email: form.email,
-        role: form.role
-      })
-      
-      const generatedLink = `${window.location.origin}/invite/${result.inviteToken}`
-      setInviteLink(generatedLink)
-      copyToClipboard(generatedLink)
-      
-      showSuccess('Usuario invitado. Enlace copiado al portapapeles.')
+      if (editUserId) {
+        // CRUD - Update
+        await usersService.updateUser(editUserId, {
+          name: form.name,
+          email: form.email,
+          role: form.role
+        })
+        showSuccess('Usuario actualizado correctamente')
+        setShowModal(false)
+      } else {
+        // CRUD - Create
+        const result = await usersService.inviteUser({
+          name: form.name,
+          email: form.email,
+          role: form.role
+        })
+        
+        const generatedLink = `${window.location.origin}/invite/${result.inviteToken}`
+        setInviteLink(generatedLink)
+        copyToClipboard(generatedLink)
+        showSuccess('Usuario invitado. Enlace copiado al portapapeles.')
+      }
       fetchUsers() // Refresh list
     } catch (error) {
       console.error('Error al invitar:', error)
@@ -236,6 +256,11 @@ const UsersPage = () => {
                             <Icon name="trash-2" size={13} />
                           </button>
                         )}
+                        {isAdmin && (
+                          <button onClick={() => openEdit(u)} className="p-1.5 rounded-md border border-white/5 bg-white/5 text-accent-cyan hover:bg-accent-cyan/10 hover:border-accent-cyan/20 transition-all" title="Editar Nombre/Rol">
+                            <Icon name="edit" size={13} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </motion.tr>
@@ -260,7 +285,7 @@ const UsersPage = () => {
                 onClick={e => e.stopPropagation()}
               >
                 <h3 className="text-base font-bold text-text-primary mb-4">
-                  Invitar al Equipo
+                  {editUserId ? 'Editar Usuario' : 'Invitar al Equipo'}
                 </h3>
                 
                 {!inviteLink ? (
@@ -272,7 +297,7 @@ const UsersPage = () => {
                     </div>
                     <div>
                       <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.email')}</label>
-                      <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field text-xs" placeholder="email@empresa.com" disabled={isSubmitting} />
+                      <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field text-xs" placeholder="email@empresa.com" disabled={isSubmitting || !!editUserId} title={editUserId ? "No se puede cambiar el email de un usuario existente" : ""} />
                     </div>
                     <div>
                       <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.role')}</label>
@@ -285,9 +310,9 @@ const UsersPage = () => {
                   </div>
                   <div className="flex gap-3 mt-5">
                     <button disabled={isSubmitting} onClick={() => setShowModal(false)} className="btn-secondary flex-1 text-sm py-2">{t('common.cancel')}</button>
-                    <button disabled={isSubmitting || !form.name || !form.email} onClick={handleInvite} className="btn-primary flex-1 text-sm py-2 flex items-center justify-center gap-1.5">
-                      <Icon name={isSubmitting ? "loader" : "send"} size={13} className={isSubmitting ? "animate-spin" : ""} />
-                      Invitar
+                    <button disabled={isSubmitting || !form.name || !form.email} onClick={handleInviteOrUpdate} className="btn-primary flex-1 text-sm py-2 flex items-center justify-center gap-1.5">
+                      <Icon name={isSubmitting ? "loader" : (editUserId ? "save" : "send")} size={13} className={isSubmitting ? "animate-spin" : ""} />
+                      {editUserId ? 'Guardar' : 'Invitar'}
                     </button>
                   </div>
                   </>

@@ -19,6 +19,8 @@ import java.util.List;
 @Service
 public class TelemetryService {
 
+    private final ServerRepository serverRepository;
+    private final MetricRepository metricRepository;
     private final AlertRepository alertRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final AuditService auditService;
@@ -43,6 +45,7 @@ public class TelemetryService {
 
         Server server = serverRepository.findByOrganizationIdAndHostname(org.getId(), payload.host())
                 .orElseGet(() -> {
+                    Server newServer = new Server();
                     newServer.setOrganization(org);
                     newServer.setHostname(payload.host());
                     

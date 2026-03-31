@@ -38,6 +38,12 @@ const usersService = {
   regenerateInvite: async (userId) => {
     const response = await api.post(`/api/v1/users/${userId}/regenerate-invite`)
     return response.data
+  },
+
+  // Actualizar nombre y rol de un usuario (CRUD - Update)
+  updateUser: async (userId, userData) => {
+    const response = await api.put(`/api/v1/users/${userId}`, userData)
+    return response.data
   }
 }
 

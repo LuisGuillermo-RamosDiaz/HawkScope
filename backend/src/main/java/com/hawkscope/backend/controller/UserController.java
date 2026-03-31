@@ -15,6 +15,8 @@ import java.util.UUID;
 @RequestMapping("/api/v1/users")
 public class UserController {
 
+    private final UserService userService;
+    private final JwtService jwtService;
     private final com.hawkscope.backend.service.S3Service s3Service;
     private final com.hawkscope.backend.repository.UserRepository userRepository;
     private final com.hawkscope.backend.service.AuditService auditService;
@@ -62,6 +64,17 @@ public class UserController {
             UUID orgId = getOrgId(authHeader);
             userService.deleteUser(id, orgId);
             return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(403).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateUser(@RequestHeader("Authorization") String authHeader, @PathVariable UUID id, @Valid @RequestBody InviteUserDto request) {
+        try {
+            UUID orgId = getOrgId(authHeader);
+            userService.updateUser(id, request, orgId);
+            return ResponseEntity.ok(Map.of("message", "User updated successfully"));
         } catch (Exception e) {
             return ResponseEntity.status(403).body(Map.of("message", e.getMessage()));
         }
