@@ -23,15 +23,18 @@ public class TelemetryService {
     private final MetricRepository metricRepository;
     private final AlertRepository alertRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final AuditService auditService;
 
     public TelemetryService(ServerRepository serverRepository, 
                             MetricRepository metricRepository,
                             AlertRepository alertRepository,
-                            SimpMessagingTemplate messagingTemplate) {
+                            SimpMessagingTemplate messagingTemplate,
+                            AuditService auditService) {
         this.serverRepository = serverRepository;
         this.metricRepository = metricRepository;
         this.alertRepository = alertRepository;
         this.messagingTemplate = messagingTemplate;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -45,6 +48,18 @@ public class TelemetryService {
                     Server newServer = new Server();
                     newServer.setOrganization(org);
                     newServer.setHostname(payload.host());
+                    
+                    // Audit Logging Requirement
+                    auditService.log(
+                        org.getId().toString(),
+                        null,
+                        "Nuevo servidor detectado",
+                        "Server",
+                        null,
+                        payload.host(),
+                        "{\"message\": \"Primera conexión recibida del agente en " + payload.host() + "\"}"
+                    );
+                    
                     return newServer;
                 });
 

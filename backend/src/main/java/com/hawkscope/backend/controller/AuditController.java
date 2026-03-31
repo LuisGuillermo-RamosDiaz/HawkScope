@@ -51,13 +51,17 @@ public class AuditController {
             m.put("details", log.getDetails());
             m.put("errorMessage", log.getErrorMessage());
 
-            // Resolve user email
-            if (log.getUserId() != null) {
-                userRepository.findById(UUID.fromString(log.getUserId()))
-                    .ifPresentOrElse(
-                        u -> m.put("user", u.getEmail()),
-                        () -> m.put("user", "system")
-                    );
+            // Resolve user email safely
+            if (log.getUserId() != null && !log.getUserId().isEmpty()) {
+                try {
+                    userRepository.findById(UUID.fromString(log.getUserId()))
+                        .ifPresentOrElse(
+                            u -> m.put("user", u.getEmail()),
+                            () -> m.put("user", "system")
+                        );
+                } catch (Exception e) {
+                    m.put("user", "system");
+                }
             } else {
                 m.put("user", "system");
             }

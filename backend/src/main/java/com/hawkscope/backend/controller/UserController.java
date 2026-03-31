@@ -19,12 +19,14 @@ public class UserController {
     private final JwtService jwtService;
     private final com.hawkscope.backend.service.S3Service s3Service;
     private final com.hawkscope.backend.repository.UserRepository userRepository;
+    private final com.hawkscope.backend.service.AuditService auditService;
 
-    public UserController(UserService userService, JwtService jwtService, com.hawkscope.backend.service.S3Service s3Service, com.hawkscope.backend.repository.UserRepository userRepository) {
+    public UserController(UserService userService, JwtService jwtService, com.hawkscope.backend.service.S3Service s3Service, com.hawkscope.backend.repository.UserRepository userRepository, com.hawkscope.backend.service.AuditService auditService) {
         this.userService = userService;
         this.jwtService = jwtService;
         this.s3Service = s3Service;
         this.userRepository = userRepository;
+        this.auditService = auditService;
     }
 
     private UUID getOrgId(String authHeader) {
@@ -67,6 +69,17 @@ public class UserController {
         }
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateUser(@RequestHeader("Authorization") String authHeader, @PathVariable UUID id, @Valid @RequestBody InviteUserDto request) {
+        try {
+            UUID orgId = getOrgId(authHeader);
+            userService.updateUser(id, request, orgId);
+            return ResponseEntity.ok(Map.of("message", "User updated successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(403).body(Map.of("message", e.getMessage()));
+        }
+    }
+
     @PostMapping("/{id}/regenerate-invite")
     public ResponseEntity<?> regenerateInvite(@RequestHeader("Authorization") String authHeader, @PathVariable UUID id) {
         try {
@@ -101,6 +114,17 @@ public class UserController {
             user.setProfilePictureUrl(s3Url);
             userRepository.save(user);
 
+            // Audit Logging Requirement
+            auditService.log(
+                orgId.toString(),
+                id.toString(), // The user being updated
+                "Perfil Actualizado",
+                "User",
+                id.toString(),
+                user.getEmail(),
+                "{\"message\": \"Cambio de foto de perfil exitoso (S3 Object Created).\"}"
+            );
+            
             return ResponseEntity.ok(Map.of("message", "Profile picture updated successfully", "url", s3Url));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("message", "Failed to upload image: " + e.getMessage()));

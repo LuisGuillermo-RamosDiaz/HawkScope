@@ -28,15 +28,15 @@ public class AuthService {
     private final JwtService jwtService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final EmailService emailService;
-    private final AuditLogRepository auditLogRepository;
+    private final AuditService auditService;
 
-    public AuthService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService, org.springframework.security.crypto.password.PasswordEncoder passwordEncoder, EmailService emailService, AuditLogRepository auditLogRepository) {
+    public AuthService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService, org.springframework.security.crypto.password.PasswordEncoder passwordEncoder, EmailService emailService, AuditService auditService) {
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
-        this.auditLogRepository = auditLogRepository;
+        this.auditService = auditService;
     }
 
     public Optional<LoginResponseDto> authenticate(LoginRequestDto request) {
@@ -56,6 +56,18 @@ public class AuthService {
                         user.getOrganization().getApiKey(),
                         user.getProfilePictureUrl()
                     );
+                    
+                    // Audit Logging Requirement
+                    auditService.log(
+                        user.getOrganization().getId().toString(),
+                        user.getId().toString(),
+                        "Inicio de sesión",
+                        "Auth",
+                        user.getId().toString(),
+                        user.getEmail(),
+                        "{\"message\": \"Usuario ha iniciado sesión exitosamente.\"}"
+                    );
+                    
                     return new LoginResponseDto(token, userInfo);
                 });
     }
@@ -90,16 +102,15 @@ public class AuthService {
         emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
 
         // Audit Logging Requirement
-        AuditLog audit = new AuditLog();
-        audit.setOrganizationId(org.getId().toString());
-        audit.setUserId(user.getId().toString());
-        audit.setAction("Alta de usuario");
-        audit.setResourceType("User");
-        audit.setResourceId(user.getId().toString());
-        audit.setResourceName(user.getEmail());
-        audit.setIpAddress("Backend Process");
-        audit.setDetails("{\"message\": \"User registered fully in HawkScope.\"}");
-        auditLogRepository.save(audit);
+        auditService.log(
+            org.getId().toString(),
+            user.getId().toString(),
+            "Alta de usuario (Admin)",
+            "User",
+            user.getId().toString(),
+            user.getEmail(),
+            "{\"message\": \"Usuario administrador registrado e inicio de organización.\"}"
+        );
 
         String token = jwtService.generateToken(
             user.getEmail(),
@@ -148,6 +159,17 @@ public class AuthService {
             user.getEmail(),
             user.getRole(),
             org.getId().toString()
+        );
+
+        // Audit Logging Requirement
+        auditService.log(
+            org.getId().toString(),
+            user.getId().toString(),
+            "Aceptación de Invitación",
+            "User",
+            user.getId().toString(),
+            user.getEmail(),
+            "{\"message\": \"El usuario ha activado su cuenta exitosamente.\"}"
         );
 
         return new LoginResponseDto(token, new UserInfoDto(
