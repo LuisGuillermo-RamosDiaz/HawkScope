@@ -15,16 +15,16 @@ import java.util.UUID;
 @RequestMapping("/api/v1/users")
 public class UserController {
 
-    private final UserService userService;
-    private final JwtService jwtService;
     private final com.hawkscope.backend.service.S3Service s3Service;
     private final com.hawkscope.backend.repository.UserRepository userRepository;
+    private final com.hawkscope.backend.service.AuditService auditService;
 
-    public UserController(UserService userService, JwtService jwtService, com.hawkscope.backend.service.S3Service s3Service, com.hawkscope.backend.repository.UserRepository userRepository) {
+    public UserController(UserService userService, JwtService jwtService, com.hawkscope.backend.service.S3Service s3Service, com.hawkscope.backend.repository.UserRepository userRepository, com.hawkscope.backend.service.AuditService auditService) {
         this.userService = userService;
         this.jwtService = jwtService;
         this.s3Service = s3Service;
         this.userRepository = userRepository;
+        this.auditService = auditService;
     }
 
     private UUID getOrgId(String authHeader) {
@@ -101,6 +101,17 @@ public class UserController {
             user.setProfilePictureUrl(s3Url);
             userRepository.save(user);
 
+            // Audit Logging Requirement
+            auditService.log(
+                orgId.toString(),
+                id.toString(), // The user being updated
+                "Perfil Actualizado",
+                "User",
+                id.toString(),
+                user.getEmail(),
+                "{\"message\": \"Cambio de foto de perfil exitoso (S3 Object Created).\"}"
+            );
+            
             return ResponseEntity.ok(Map.of("message", "Profile picture updated successfully", "url", s3Url));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("message", "Failed to upload image: " + e.getMessage()));

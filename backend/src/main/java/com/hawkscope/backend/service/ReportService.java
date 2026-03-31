@@ -15,10 +15,12 @@ public class ReportService {
 
     private final ServerRepository serverRepository;
     private final S3Service s3Service;
+    private final AuditService auditService;
 
-    public ReportService(ServerRepository serverRepository, S3Service s3Service) {
+    public ReportService(ServerRepository serverRepository, S3Service s3Service, AuditService auditService) {
         this.serverRepository = serverRepository;
         this.s3Service = s3Service;
+        this.auditService = auditService;
     }
 
     public String generateAndUploadServerReport(UUID orgId) throws Exception {
@@ -52,6 +54,19 @@ public class ReportService {
         InputStream is = new ByteArrayInputStream(bytes);
         
         String key = "reports/servers-" + orgId + "-" + System.currentTimeMillis() + ".csv";
-        return s3Service.uploadFile(key, is, bytes.length, "text/csv");
+        String url = s3Service.uploadFile(key, is, bytes.length, "text/csv");
+        
+        // Audit Logging Requirement
+        auditService.log(
+            orgId.toString(),
+            null,
+            "Generación de Reporte",
+            "Report",
+            null,
+            "Inventario_Servidores.csv",
+            "{\"message\": \"Extracción de datos de infraestructura a S3 exitosa.\"}"
+        );
+        
+        return url;
     }
 }

@@ -17,16 +17,16 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
-    private final UserRepository userRepository;
-    private final OrganizationRepository organizationRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
-    public UserService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService, PasswordEncoder passwordEncoder, AuditService auditService) {
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
+        this.auditService = auditService;
     }
 
     public List<UserDto> getUsersByOrganization(UUID orgId) {
@@ -61,6 +61,17 @@ public class UserService {
         
         userRepository.save(user);
 
+        // Audit Logging Requirement
+        auditService.log(
+            orgId.toString(),
+            null, // System/Context dependent
+            "Invitación enviada",
+            "User",
+            user.getId().toString(),
+            user.getEmail(),
+            "{\"message\": \"Invitación de usuario creada con rol: " + request.role() + "\"}"
+        );
+
         return jwtService.generateInviteToken(user.getEmail(), user.getRole(), org.getId().toString());
     }
 
@@ -80,6 +91,17 @@ public class UserService {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isPresent() && userOpt.get().getOrganization().getId().equals(orgId)) {
             userRepository.delete(userOpt.get());
+            
+            // Audit Logging Requirement
+            auditService.log(
+                orgId.toString(),
+                null,
+                "Usuario eliminado",
+                "User",
+                userId.toString(),
+                userOpt.get().getEmail(),
+                "{\"message\": \"El administrador ha eliminado este usuario del sistema.\"}"
+            );
         } else {
             throw new RuntimeException("User not found or access denied");
         }

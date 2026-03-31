@@ -29,6 +29,27 @@ const UsersPage = () => {
   const [linkCopied, setLinkCopied] = useState(false)
   
   const [users, setUsers] = useState([])
+  
+  const copyToClipboard = (text) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text)
+    } else {
+      const textArea = document.createElement("textarea")
+      textArea.value = text
+      textArea.style.position = "fixed"
+      textArea.style.left = "-999999px"
+      textArea.style.top = "-999999px"
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      try {
+        document.execCommand('copy')
+      } catch (err) {
+        console.error('Buscamos copiar pero fallo el fallback:', err)
+      }
+      document.body.removeChild(textArea)
+    }
+  }
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(null)
@@ -74,12 +95,14 @@ const UsersPage = () => {
       
       const generatedLink = `${window.location.origin}/invite/${result.inviteToken}`
       setInviteLink(generatedLink)
-      navigator.clipboard.writeText(generatedLink)
+      copyToClipboard(generatedLink)
       
       showSuccess('Usuario invitado. Enlace copiado al portapapeles.')
       fetchUsers() // Refresh list
     } catch (error) {
-      showError(error.response?.data?.message || 'Error al invitar usuario')
+      console.error('Error al invitar:', error)
+      const errorMsg = error.response?.data?.message || 'Error al invitar usuario'
+      showError(errorMsg)
     } finally {
       setIsSubmitting(false)
     }
@@ -98,7 +121,8 @@ const UsersPage = () => {
       setForm({ name: u.fullName || '', email: u.email || '', role: u.role || 'viewer' })
       setShowModal(true)
     } catch (error) {
-      showError(error.response?.data?.message || 'Error al regenerar invitación')
+      const errorMsg = error.response?.data?.message || 'Error al regenerar invitación'
+      showError(errorMsg)
     }
   }
 
@@ -115,7 +139,7 @@ const UsersPage = () => {
 
   const copyLink = () => {
     if (inviteLink) {
-      navigator.clipboard.writeText(inviteLink)
+      copyToClipboard(inviteLink)
       setLinkCopied(true)
       showSuccess('Enlace copiado al portapapeles')
       setTimeout(() => setLinkCopied(false), 2500)
