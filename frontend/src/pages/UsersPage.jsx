@@ -297,7 +297,13 @@ const UsersPage = () => {
                     </div>
                     <div>
                       <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.email')}</label>
-                      <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field text-xs" placeholder="email@empresa.com" disabled={isSubmitting || !!editUserId} title={editUserId ? "No se puede cambiar el email de un usuario existente" : ""} />
+                      {editUserId ? (
+                        <div className="p-2.5 rounded-lg bg-white/5 border border-white/5 text-text-muted text-xs font-medium cursor-not-allowed opacity-80">
+                          {form.email}
+                        </div>
+                      ) : (
+                        <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field text-xs" placeholder="email@empresa.com" disabled={isSubmitting} />
+                      )}
                     </div>
                     <div>
                       <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.role')}</label>
