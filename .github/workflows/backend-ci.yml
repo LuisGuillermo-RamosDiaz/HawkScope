@@ -37,3 +37,39 @@ jobs:
         name: backend-jar
         path: backend/target/*.jar
         retention-days: 1
+
+  deploy-to-ec2:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout del código
+      uses: actions/checkout@v4
+
+    - name: Descargar artefacto JAR
+      uses: actions/download-artifact@v4
+      with:
+        name: backend-jar
+        path: ./target
+
+    - name: Transferir JAR y Config a EC2 vía SCP
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "target/*.jar,backend/ecosystem.config.js"
+        target: "~/hawkscope-api/"
+        strip_components: 1
+
+    - name: Reiniciar PM2 en EC2 vía SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd ~/hawkscope-api
+          pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+          pm2 save

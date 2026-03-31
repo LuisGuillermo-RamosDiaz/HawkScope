@@ -36,3 +36,32 @@ jobs:
 
     - name: Analizar código (Linting de React)
       run: npm run lint --if-present
+
+    - name: Subir artefacto de Build
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-dist
+        path: frontend/dist/
+        retention-days: 1
+
+  deploy-to-s3:
+    needs: build-and-lint
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Descargar artefacto de Build
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-dist
+        path: ./dist
+
+    - name: Configurar Credenciales de AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Sincronizar (Upload) a S3
+      run: aws s3 sync ./dist s3://${{ secrets.AWS_S3_BUCKET_NAME }} --delete

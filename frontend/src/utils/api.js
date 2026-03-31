@@ -48,6 +48,12 @@ api.interceptors.response.use(
       useAuthStore.getState().logout()
       
       // Dejamos que los componentes reaccionen al estado isAuthenticated=false
+    } else if (error.response?.status === 500) {
+      console.error('Error 500 Capturado por Interceptor. Redirigiendo a pantalla de resiliencia...');
+      window.location.href = '/500';
+    } else if (error.response?.status === 404) {
+      console.error('Error 404 Capturado por Interceptor. Redirigiendo a pantalla de resiliencia...');
+      window.location.href = '/404';
     }
     
     return Promise.reject(error)
