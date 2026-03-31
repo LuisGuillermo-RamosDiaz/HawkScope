@@ -16,6 +16,8 @@ const SecurityPage = lazy(() => import('./pages/SecurityPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const UsersPage = lazy(() => import('./pages/UsersPage'))
 const AcceptInvitePage = lazy(() => import('./pages/AcceptInvitePage'))
+const Error404Page = lazy(() => import('./pages/Error404Page'))
+const Error500Page = lazy(() => import('./pages/Error500Page'))
 
 const ProtectedLayout = ({ children, allowedRoles }) => (
   <ProtectedRoute allowedRoles={allowedRoles}>
@@ -70,7 +72,18 @@ function App() {
       <Route path="/settings" element={<ProtectedLayout allowedRoles={['admin']}><SettingsPage /></ProtectedLayout>} />
       <Route path="/users" element={<ProtectedLayout allowedRoles={['admin']}><UsersPage /></ProtectedLayout>} />
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/404" element={
+        <Suspense fallback={<PageLoader fullScreen />}>
+          <Error404Page />
+        </Suspense>
+      } />
+      <Route path="/500" element={
+        <Suspense fallback={<PageLoader fullScreen />}>
+          <Error500Page />
+        </Suspense>
+      } />
+
+      <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
   )
 }

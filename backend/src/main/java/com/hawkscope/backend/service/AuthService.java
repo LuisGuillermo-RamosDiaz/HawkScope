@@ -8,6 +8,8 @@ import com.hawkscope.backend.entity.Organization;
 import com.hawkscope.backend.entity.User;
 import com.hawkscope.backend.repository.OrganizationRepository;
 import com.hawkscope.backend.repository.UserRepository;
+import com.hawkscope.backend.repository.AuditLogRepository;
+import com.hawkscope.backend.entity.AuditLog;
 import io.jsonwebtoken.Claims;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,12 +27,16 @@ public class AuthService {
     private final OrganizationRepository organizationRepository;
     private final JwtService jwtService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
+    private final AuditLogRepository auditLogRepository;
 
-    public AuthService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService, org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService, org.springframework.security.crypto.password.PasswordEncoder passwordEncoder, EmailService emailService, AuditLogRepository auditLogRepository) {
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
+        this.auditLogRepository = auditLogRepository;
     }
 
     public Optional<LoginResponseDto> authenticate(LoginRequestDto request) {
@@ -78,7 +84,22 @@ public class AuthService {
         user.setRole("admin");
         user.setOrganization(org);
         user.setStatus("active");
-        userRepository.save(user);
+        user = userRepository.save(user);
+
+        // Third-party requirement: Send Welcome Email
+        emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
+
+        // Audit Logging Requirement
+        AuditLog audit = new AuditLog();
+        audit.setOrganizationId(org.getId().toString());
+        audit.setUserId(user.getId().toString());
+        audit.setAction("Alta de usuario");
+        audit.setResourceType("User");
+        audit.setResourceId(user.getId().toString());
+        audit.setResourceName(user.getEmail());
+        audit.setIpAddress("Backend Process");
+        audit.setDetails("{\"message\": \"User registered fully in HawkScope.\"}");
+        auditLogRepository.save(audit);
 
         String token = jwtService.generateToken(
             user.getEmail(),
