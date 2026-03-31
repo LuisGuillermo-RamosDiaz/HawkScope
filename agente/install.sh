@@ -47,8 +47,9 @@ PYTHON_MIN_MAJOR=3
 PYTHON_MIN_MINOR=9
 UPDATE_MODE=false
 
-# URL del backend (Endpoint de métricas)
+# URL del backend (Endpoint de métricas por defecto)
 BACKEND_URL="https://hawkscope-backend.onrender.com/api/v1/agent/metrics"
+ARG_API_URL=""
 
 # URL base desde donde se descargan monitor.py y requirements.txt.
 # Esta URL es la fuente canónica para el modo de distribución remota
@@ -75,10 +76,18 @@ while [[ "$#" -gt 0 ]]; do
         shift
       fi
       ;;
+    --api-url=*) ARG_API_URL="${1#*=}" ;;
+    --api-url)
+      if [[ -n "${2:-}" ]]; then
+        ARG_API_URL="$2"
+        shift
+      fi
+      ;;
     --help|-h)
-      echo "Uso: sudo bash install.sh [--update] [--api-key <KEY>]"
-      echo "  --update         Reinstala el agente sobre una instalación existente"
-      echo "  --api-key <KEY>  API key de la organización (omite el prompt interactivo)"
+      echo "Uso: sudo bash install.sh [--update] [--api-key <KEY>] [--api-url <URL>]"
+      echo "  --update          Reinstala el agente sobre una instalación existente"
+      echo "  --api-key <KEY>   API key de la organización (omite el prompt interactivo)"
+      echo "  --api-url <URL>   URL del backend (ej: http://ip:port/api/v1/agent/metrics)"
       exit 0
       ;;
   esac
@@ -338,13 +347,16 @@ configure_env() {
       warn "Intervalo inválido; se usará 10s."
     fi
   fi
+  # Si se proporcionó una URL por argumento, usarla. Si no, usar la por defecto.
+  local final_api_url="${ARG_API_URL:-$BACKEND_URL}"
+
   # Escribir .env
   cat > "$ENV_FILE" <<EOF
 # HawkScope Agent — Configuración
 # Generado automáticamente por install.sh el $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Para modificar: sudo nano ${ENV_FILE}
 
-API_URL=${BACKEND_URL}
+API_URL=${final_api_url}
 API_KEY=${api_key}
 SEND_INTERVAL=${send_interval}
 
