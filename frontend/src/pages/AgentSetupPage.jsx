@@ -15,23 +15,46 @@ const AgentSetupPage = () => {
   const [connected, setConnected] = useState(false)
 
   const backendUrl = import.meta.env.VITE_API_URL || 'https://hawkscope-backend.onrender.com/api'
-  const installCommand = `curl -fsSL https://raw.githubusercontent.com/LuisGuillermo-RamosDiaz/HawkScope/main/agente/install.sh | sudo bash -s -- --api-key=${user?.apiKey || '<TU_API_KEY>'}`
+  // El endpoint real del agente es /api/v1/agent/metrics
+  const agentMetricsUrl = `${backendUrl}/api/v1/agent/metrics`.replace('/api/api/', '/api/') 
+
+  const installCommand = `curl -fsSL https://raw.githubusercontent.com/LuisGuillermo-RamosDiaz/HawkScope/main/agente/install.sh | sudo bash -s -- --api-key=${user?.apiKey || '<TU_API_KEY>'} --api-url=${agentMetricsUrl}`
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(installCommand)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    const textToCopy = installCommand
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(textToCopy)
+        .then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        })
+    } else {
+      // Fallback para contextos no seguros (HTTP por IP)
+      const textArea = document.createElement("textarea")
+      textArea.value = textToCopy
+      textArea.style.position = "fixed"
+      textArea.style.left = "-999999px"
+      textArea.style.top = "-999999px"
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err)
+      }
+      document.body.removeChild(textArea)
+    }
   }
 
   useEffect(() => {
     if (step === 2) {
       setConnecting(true)
       setConnected(false)
-      const timer = setTimeout(() => {
-        setConnecting(false)
-        setConnected(true)
-      }, 3000)
-      return () => clearTimeout(timer)
+      // Ya no simulamos éxito. El usuario debe esperar o el sistema debe ser honesto.
+      // En una versión futura aquí se haría polling al backend.
     }
   }, [step])
 
@@ -138,27 +161,28 @@ const AgentSetupPage = () => {
                         animate={{ rotate: 360 }}
                         transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
                       />
-                      <p className="text-xs text-text-secondary">{t('agentSetup.waitingConnection')}</p>
+                      <p className="text-xs text-text-secondary text-center max-w-[280px]">
+                        Esperando señal del agente... una vez que el script termine, tus métricas aparecerán aquí.
+                      </p>
                     </>
-                  )}
-                  {connected && (
-                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
-                      <div className="w-16 h-16 rounded-full bg-status-healthy/10 border border-status-healthy/20 flex items-center justify-center mb-4">
-                        <Icon name="check-circle" size={32} className="text-status-healthy" />
-                      </div>
-                      <p className="text-sm font-medium text-status-healthy text-center">{t('agentSetup.agentConnected')}</p>
-                    </motion.div>
                   )}
                 </div>
 
-                <button
-                  onClick={() => setStep(3)}
-                  disabled={!connected}
-                  className={`btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2 ${!connected ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <span>{t('common.next')}</span>
-                  <Icon name="arrow-right" size={14} />
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setStep(3)}
+                    className="btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2"
+                  >
+                    <span>{t('common.next')}</span>
+                    <Icon name="arrow-right" size={14} />
+                  </button>
+                  <button
+                    onClick={() => setStep(1)}
+                    className="w-full py-2 text-[10px] text-text-muted hover:text-text-primary transition-colors"
+                  >
+                    Volver a ver el comando
+                  </button>
+                </div>
               </motion.div>
             )}
 
