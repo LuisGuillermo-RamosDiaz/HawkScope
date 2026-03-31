@@ -109,10 +109,15 @@ public class UserService {
         }
     }
 
-    public void updateUser(UUID userId, InviteUserDto request, UUID orgId) {
+    public void updateUser(UUID userId, InviteUserDto request, UUID orgId, UUID requesterId) {
         User user = userRepository.findById(userId)
                 .filter(u -> u.getOrganization().getId().equals(orgId))
                 .orElseThrow(() -> new RuntimeException("User not found or access denied"));
+
+        // Seguridad: El único Admin no puede demotearse a sí mismo (Evitar Auto-Bloqueo)
+        if (userId.equals(requesterId) && "admin".equals(user.getRole()) && !"admin".equals(request.role())) {
+            throw new RuntimeException("No puedes quitarte el rol de Administrador a ti mismo (Seguridad).");
+        }
 
         user.setFullName(request.name());
         user.setRole(request.role());

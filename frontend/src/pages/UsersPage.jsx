@@ -307,11 +307,24 @@ const UsersPage = () => {
                     </div>
                     <div>
                       <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">{t('users.role')}</label>
-                      <select name="role" value={form.role} onChange={handleChange} className="input-field text-xs py-2.5" disabled={isSubmitting}>
+                      <select 
+                        name="role" 
+                        value={form.role} 
+                        onChange={handleChange} 
+                        className="input-field text-xs py-2.5" 
+                        disabled={isSubmitting || (editUserId === user?.id)}
+                        title={editUserId === user?.id ? "No puedes cambiar tu propio rol por seguridad" : ""}
+                      >
                         <option value="admin">{t('users.admin')}</option>
                         <option value="operator">{t('users.operator')}</option>
                         <option value="viewer">{t('users.viewer')}</option>
                       </select>
+                      {editUserId === user?.id && (
+                        <p className="text-[9px] text-accent-amber mt-1.5 flex items-center gap-1">
+                          <Icon name="info" size={10} />
+                          No puedes quitarte el rol de Administrador a ti mismo.
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-3 mt-5">

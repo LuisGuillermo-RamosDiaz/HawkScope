@@ -46,7 +46,8 @@ public class AuthService {
                     String token = jwtService.generateToken(
                         user.getEmail(),
                         user.getRole(),
-                        user.getOrganization().getId().toString()
+                        user.getOrganization().getId().toString(),
+                        user.getId().toString()
                     );
                     UserInfoDto userInfo = new UserInfoDto(
                         user.getId().toString(),
@@ -115,7 +116,8 @@ public class AuthService {
         String token = jwtService.generateToken(
             user.getEmail(),
             user.getRole(),
-            org.getId().toString()
+            org.getId().toString(),
+            user.getId().toString()
         );
 
         return new LoginResponseDto(token, new UserInfoDto(
@@ -158,7 +160,8 @@ public class AuthService {
         String token = jwtService.generateToken(
             user.getEmail(),
             user.getRole(),
-            org.getId().toString()
+            org.getId().toString(),
+            user.getId().toString()
         );
 
         // Audit Logging Requirement
@@ -201,7 +204,8 @@ public class AuthService {
         String newToken = jwtService.generateToken(
             claims.get("email", String.class),
             claims.get("role", String.class),
-            claims.get("org_id", String.class)
+            claims.get("org_id", String.class),
+            claims.get("user_id", String.class)
         );
         return Optional.of(newToken);
     }

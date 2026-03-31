@@ -35,6 +35,12 @@ public class UserController {
         return UUID.fromString(claims.get("org_id", String.class));
     }
 
+    private UUID getUserId(String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        Claims claims = jwtService.parseToken(token);
+        return UUID.fromString(claims.get("user_id", String.class));
+    }
+
     @GetMapping
     public ResponseEntity<?> getUsers(@RequestHeader("Authorization") String authHeader) {
         try {
@@ -73,7 +79,8 @@ public class UserController {
     public ResponseEntity<?> updateUser(@RequestHeader("Authorization") String authHeader, @PathVariable UUID id, @Valid @RequestBody InviteUserDto request) {
         try {
             UUID orgId = getOrgId(authHeader);
-            userService.updateUser(id, request, orgId);
+            UUID requesterId = getUserId(authHeader);
+            userService.updateUser(id, request, orgId, requesterId);
             return ResponseEntity.ok(Map.of("message", "User updated successfully"));
         } catch (Exception e) {
             return ResponseEntity.status(403).body(Map.of("message", e.getMessage()));
