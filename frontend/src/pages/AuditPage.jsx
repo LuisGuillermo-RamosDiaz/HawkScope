@@ -121,15 +121,19 @@ const AuditPage = () => {
     {
       key: 'details',
       label: 'Detalles',
-      cellClass: 'text-[10px] text-text-secondary min-w-[300px]',
+      cellClass: 'text-[10px] text-text-secondary min-w-[300px] max-w-[400px]',
       render: (val) => {
         if (!val) return '-';
         try {
-          // Si el backend envía el JSON como string, lo parseamos
           const parsed = typeof val === 'string' && val.startsWith('{') ? JSON.parse(val) : val;
-          return parsed.message || (typeof parsed === 'string' ? parsed : JSON.stringify(parsed));
+          const message = parsed.message || (typeof parsed === 'string' ? parsed : JSON.stringify(parsed));
+          return (
+            <div className="line-clamp-2 leading-relaxed" title={message}>
+              {message}
+            </div>
+          );
         } catch (e) {
-          return val;
+          return <div className="line-clamp-1" title={val}>{val}</div>;
         }
       },
     },
