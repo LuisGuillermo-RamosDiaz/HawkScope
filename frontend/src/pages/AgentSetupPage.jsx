@@ -14,7 +14,7 @@ const AgentSetupPage = () => {
   const [copied, setCopied] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [connected, setConnected] = useState(false)
-  const [initialServerCount, setInitialServerCount] = useState(null)
+  const [pollingStartTime] = useState(Date.now())
 
   const backendUrl = import.meta.env.VITE_API_URL || 'https://hawkscope-backend.onrender.com/api'
   // El endpoint real del agente es /api/v1/agent/metrics
@@ -51,50 +51,48 @@ const AgentSetupPage = () => {
     }
   }
 
-  // Cargar contador inicial al montar
-  useEffect(() => {
-    const fetchInitialCount = async () => {
-      try {
-        const { data } = await api.get('/api/v1/dashboard/summary')
-        setInitialServerCount(data.totalServers || 0)
-      } catch (err) {
-        console.error('Error fetching initial server count:', err)
-        setInitialServerCount(0) // Fallback
-      }
-    }
-    fetchInitialCount()
-  }, [])
-
   useEffect(() => {
     let interval = null
+    const startTime = Date.now()
+
     if (step === 2 && !connected) {
       setConnecting(true)
       
-      // Iniciamos el POLLING REAL cada 3 segundos
+      console.log('HawkScope: Iniciando detección inteligente de latido (Polling V2)...')
+
       interval = setInterval(async () => {
         try {
-          const { data } = await api.get('/api/v1/dashboard/summary')
-          const currentCount = data.totalServers || 0
+          // Consultamos el estado real de los servidores
+          const { data } = await api.get('/api/v1/metrics/servers')
+          const servers = data.data || []
           
-          if (initialServerCount !== null && currentCount > initialServerCount) {
-            // ¡ÉXITO! Se detectó un nuevo servidor
+          // Buscamos si existe algún servidor con un pulso "fresco"
+          // (mantenemos un margen de 10 seg para evitar desincronía de relojes)
+          const hasFreshHeartbeat = servers.some(server => {
+            if (!server.last_heartbeat) return false
+            const heartbeatTime = new Date(server.last_heartbeat).getTime()
+            return heartbeatTime > (startTime - 10000)
+          })
+
+          if (hasFreshHeartbeat) {
+            console.log('HawkScope: ¡Detección exitosa! Pulso fresco recibido.')
             setConnected(true)
             setConnecting(false)
             clearInterval(interval)
             
-            // Transición automática al paso final tras un breve delay de celebración
-            setTimeout(() => setStep(3), 2000)
+            // Transición automática al éxito final
+            setTimeout(() => setStep(3), 1500)
           }
         } catch (err) {
           console.error('Polling error:', err)
         }
-      }, 3000)
+      }, 2500) // Un poco más rápido para la demo (2.5s)
     }
 
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [step, connected, initialServerCount])
+  }, [step, connected])
 
   const steps = [
     { num: 1, title: t('agentSetup.step1Title'), desc: t('agentSetup.step1Desc') },
