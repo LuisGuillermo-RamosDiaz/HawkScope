@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/icons/Icon'
 import useAuthStore from '../store/authStore'
+import api from '../utils/api'
 
 const AgentSetupPage = () => {
   const { t } = useTranslation()
@@ -13,6 +14,7 @@ const AgentSetupPage = () => {
   const [copied, setCopied] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [connected, setConnected] = useState(false)
+  const [initialServerCount, setInitialServerCount] = useState(null)
 
   const backendUrl = import.meta.env.VITE_API_URL || 'https://hawkscope-backend.onrender.com/api'
   // El endpoint real del agente es /api/v1/agent/metrics
@@ -49,14 +51,50 @@ const AgentSetupPage = () => {
     }
   }
 
+  // Cargar contador inicial al montar
   useEffect(() => {
-    if (step === 2) {
-      setConnecting(true)
-      setConnected(false)
-      // Ya no simulamos éxito. El usuario debe esperar o el sistema debe ser honesto.
-      // En una versión futura aquí se haría polling al backend.
+    const fetchInitialCount = async () => {
+      try {
+        const { data } = await api.get('/api/v1/dashboard/summary')
+        setInitialServerCount(data.totalServers || 0)
+      } catch (err) {
+        console.error('Error fetching initial server count:', err)
+        setInitialServerCount(0) // Fallback
+      }
     }
-  }, [step])
+    fetchInitialCount()
+  }, [])
+
+  useEffect(() => {
+    let interval = null
+    if (step === 2 && !connected) {
+      setConnecting(true)
+      
+      // Iniciamos el POLLING REAL cada 3 segundos
+      interval = setInterval(async () => {
+        try {
+          const { data } = await api.get('/api/v1/dashboard/summary')
+          const currentCount = data.totalServers || 0
+          
+          if (initialServerCount !== null && currentCount > initialServerCount) {
+            // ¡ÉXITO! Se detectó un nuevo servidor
+            setConnected(true)
+            setConnecting(false)
+            clearInterval(interval)
+            
+            // Transición automática al paso final tras un breve delay de celebración
+            setTimeout(() => setStep(3), 2000)
+          }
+        } catch (err) {
+          console.error('Polling error:', err)
+        }
+      }, 3000)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [step, connected, initialServerCount])
 
   const steps = [
     { num: 1, title: t('agentSetup.step1Title'), desc: t('agentSetup.step1Desc') },
@@ -166,16 +204,30 @@ const AgentSetupPage = () => {
                       </p>
                     </>
                   )}
+                  {connected && (
+                    <motion.div 
+                      initial={{ scale: 0, opacity: 0 }} 
+                      animate={{ scale: 1, opacity: 1 }} 
+                      className="flex flex-col items-center"
+                    >
+                      <div className="w-16 h-16 rounded-full bg-status-healthy/10 border border-status-healthy/20 flex items-center justify-center mb-4">
+                        <Icon name="check-circle" size={32} className="text-status-healthy" />
+                      </div>
+                      <p className="text-sm font-medium text-status-healthy text-center">¡Señal recibida con éxito!</p>
+                    </motion.div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
-                  <button
-                    onClick={() => setStep(3)}
-                    className="btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2"
-                  >
-                    <span>{t('common.next')}</span>
-                    <Icon name="arrow-right" size={14} />
-                  </button>
+                  {!connected && (
+                    <button
+                      onClick={() => setStep(3)}
+                      className="btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity"
+                    >
+                      <span>Avanzar manualmente</span>
+                      <Icon name="arrow-right" size={14} />
+                    </button>
+                  )}
                   <button
                     onClick={() => setStep(1)}
                     className="w-full py-2 text-[10px] text-text-muted hover:text-text-primary transition-colors"
