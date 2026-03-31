@@ -25,7 +25,7 @@ public class AuditService {
         log.setResourceName(resourceName);
         log.setIpAddress("Backend Process");
         log.setDetails(details);
-        log.setStatus("OK");
+        log.setStatus("success");
         log.setTimestamp(LocalDateTime.now());
         
         auditLogRepository.save(log);

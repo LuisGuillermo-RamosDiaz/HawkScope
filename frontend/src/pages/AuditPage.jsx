@@ -121,8 +121,21 @@ const AuditPage = () => {
     {
       key: 'details',
       label: 'Detalles',
-      cellClass: 'text-[10px] text-text-secondary max-w-[200px] truncate',
-      render: (val) => typeof val === 'string' ? val : (val ? JSON.stringify(val).substring(0, 60) : '-'),
+      cellClass: 'text-[10px] text-text-secondary min-w-[300px] max-w-[400px]',
+      render: (val) => {
+        if (!val) return '-';
+        try {
+          const parsed = typeof val === 'string' && val.startsWith('{') ? JSON.parse(val) : val;
+          const message = parsed.message || (typeof parsed === 'string' ? parsed : JSON.stringify(parsed));
+          return (
+            <div className="line-clamp-2 leading-relaxed" title={message}>
+              {message}
+            </div>
+          );
+        } catch (e) {
+          return <div className="line-clamp-1" title={val}>{val}</div>;
+        }
+      },
     },
   ]
 
