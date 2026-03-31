@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "hawkscope-api",
       script: "java",
-      args: "-jar target/backend-0.0.1-SNAPSHOT.jar",
+      args: "-jar backend-0.0.1-SNAPSHOT.jar",
       cwd: "./", // Backend directory
       instances: 1,
       autorestart: true,
