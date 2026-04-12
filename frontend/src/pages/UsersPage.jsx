@@ -206,7 +206,7 @@ const UsersPage = () => {
                 {users.map((u, i) => {
                   const isCurrentUser = u.id === user?.id;
                   const displayPfp = isCurrentUser ? (user?.profilePictureUrl || u.profilePictureUrl) : u.profilePictureUrl;
-                  const displayName = isCurrentUser ? (user?.fullName || u.fullName) : u.fullName;
+                  const displayName = isCurrentUser ? (user?.name || u.fullName) : u.fullName;
 
                   return (
                   <motion.tr
