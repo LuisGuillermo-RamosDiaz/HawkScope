@@ -203,7 +203,12 @@ const UsersPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u, i) => (
+                {users.map((u, i) => {
+                  const isCurrentUser = u.id === user?.id;
+                  const displayPfp = isCurrentUser ? (user?.profilePictureUrl || u.profilePictureUrl) : u.profilePictureUrl;
+                  const displayName = isCurrentUser ? (user?.fullName || u.fullName) : u.fullName;
+
+                  return (
                   <motion.tr
                     key={u.id}
                     className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.015] transition-colors"
@@ -213,14 +218,14 @@ const UsersPage = () => {
                   >
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
-                        {u.profilePictureUrl ? (
-                          <img src={u.profilePictureUrl} alt={u.fullName} className="w-7 h-7 rounded-lg object-cover border border-white/[0.06]" />
+                        {displayPfp ? (
+                          <img src={displayPfp} alt={displayName} className="w-7 h-7 rounded-lg object-cover border border-white/[0.06]" />
                         ) : (
                           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-accent-purple/10 border border-white/[0.06] flex items-center justify-center text-[10px] font-bold text-accent-cyan uppercase">
-                            {u.fullName?.charAt(0) || u.email?.charAt(0)}
+                            {displayName?.charAt(0) || u.email?.charAt(0)}
                           </div>
                         )}
-                        <span className="text-xs text-text-primary font-medium">{u.fullName || 'Usuario'}</span>
+                        <span className="text-xs text-text-primary font-medium">{displayName || 'Usuario'}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3 text-[11px] text-text-secondary font-mono">{u.email}</td>
@@ -264,7 +269,7 @@ const UsersPage = () => {
                       </div>
                     </td>
                   </motion.tr>
-                ))}
+                )})}
               </tbody>
             </table>
             )}

@@ -132,7 +132,14 @@ const AgentSetupPage = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <div className="glass-card p-8 border-gradient relative overflow-hidden">
+        <div className="glass-card pt-10 pb-8 px-8 border-gradient relative overflow-hidden">
+          <button 
+            onClick={() => navigate('/dashboard')} 
+            className="absolute top-4 left-4 p-1.5 text-text-muted hover:text-text-primary hover:bg-white/5 rounded-lg transition-colors z-20 flex items-center gap-1 text-[11px] font-medium"
+          >
+            <Icon name="arrow-left" size={13} />
+            <span>Volver al panel</span>
+          </button>
           <div className="absolute top-0 left-0 right-0 h-[1px]">
             <motion.div
               className="h-full bg-gradient-to-r from-transparent via-accent-cyan to-transparent"
