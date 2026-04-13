@@ -58,7 +58,16 @@ const DashboardPage = () => {
     retry: 2,
   })
 
-  const metrics = metricsRaw || []
+  // Procesar métricas para la gráfica (System Performance)
+  // Revertimos el snapshot que ponía solo el "último" punto por servidor. Usamos el historial.
+  const metrics = useMemo(() => {
+    if (!historicalRaw || !Array.isArray(historicalRaw) || historicalRaw.length === 0) return []
+    // Si hay multiples servidores, filtramos los datos de 1 como referencia para la gráfica 
+    // y lo revertimos para flujo cronológico (antiguo -> nuevo)
+    const primaryServerId = historicalRaw[0].server_id
+    return historicalRaw.filter(m => m.server_id === primaryServerId).reverse()
+  }, [historicalRaw])
+
   const kpis = kpisRaw || {}
   const loading = metricsLoading && kpisLoading && serversLoading
   const isRefreshing = metricsFetching && !metricsLoading
