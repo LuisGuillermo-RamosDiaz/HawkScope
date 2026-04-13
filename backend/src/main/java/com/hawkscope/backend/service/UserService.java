@@ -4,10 +4,12 @@ import com.hawkscope.backend.dto.UserDto;
 import com.hawkscope.backend.dto.InviteUserDto;
 import com.hawkscope.backend.entity.Organization;
 import com.hawkscope.backend.entity.User;
+import com.hawkscope.backend.repository.AuditLogRepository;
 import com.hawkscope.backend.repository.OrganizationRepository;
 import com.hawkscope.backend.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,13 +24,15 @@ public class UserService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private final AuditLogRepository auditLogRepository;
 
-    public UserService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService, PasswordEncoder passwordEncoder, AuditService auditService) {
+    public UserService(UserRepository userRepository, OrganizationRepository organizationRepository, JwtService jwtService, PasswordEncoder passwordEncoder, AuditService auditService, AuditLogRepository auditLogRepository) {
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
         this.auditService = auditService;
+        this.auditLogRepository = auditLogRepository;
     }
 
     public List<UserDto> getUsersByOrganization(UUID orgId) {
@@ -89,10 +93,17 @@ public class UserService {
         return jwtService.generateInviteToken(user.getEmail(), user.getRole(), orgId.toString());
     }
 
+    @Transactional
     public void deleteUser(UUID userId, UUID orgId) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isPresent() && userOpt.get().getOrganization().getId().equals(orgId)) {
-            userRepository.delete(userOpt.get());
+            User user = userOpt.get();
+            
+            // Nullify user_id FK in audit_logs before deleting to avoid FK constraint violation.
+            // The audit trail entries are preserved (anonymized) as per security best practices.
+            auditLogRepository.nullifyUserId(userId.toString());
+            
+            userRepository.delete(user);
             
             // Audit Logging Requirement
             auditService.log(
@@ -101,7 +112,7 @@ public class UserService {
                 "Usuario eliminado",
                 "User",
                 userId.toString(),
-                userOpt.get().getEmail(),
+                user.getEmail(),
                 "{\"message\": \"El administrador ha eliminado este usuario del sistema.\"}"
             );
         } else {
