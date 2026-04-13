@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import Icon from './icons/Icon'
@@ -19,19 +19,41 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
   const [successMode, setSuccessMode] = useState(false)
   
   const fileInputRef = useRef(null)
+  const abortControllerRef = useRef(null)
   const { showSuccess } = useToast()
   
+  useEffect(() => {
+    if (isOpen) {
+      setFile(null)
+      setPreviewUrl(null)
+      setIsUploading(false)
+      setError('')
+      setSuccessMode(false)
+      setIsDragging(false)
+    }
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [isOpen])
+  
   const handleClose = () => {
-    if (isUploading) return
+    if (isUploading && abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
     setFile(null)
     setPreviewUrl(null)
     setError('')
     setSuccessMode(false)
     setIsDragging(false)
+    setIsUploading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
     onClose()
   }
 
   const validateAndSetFile = (selectedFile) => {
+    if (isUploading || successMode) return
     setError('')
     
     if (!selectedFile) return
@@ -76,24 +98,28 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
   }
 
   const handleFileSelect = (e) => {
+    if (isUploading || successMode) return
     if (e.target.files && e.target.files.length > 0) {
       validateAndSetFile(e.target.files[0])
     }
   }
 
   const handleUploadClick = async () => {
-    if (!file || !targetUserId) return
+    if (!file || !targetUserId || isUploading) return
     
     setIsUploading(true)
     setError('')
     
+    abortControllerRef.current = new AbortController()
+    const abortTimeoutId = setTimeout(() => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }, 8000) // 8s hard kill switch
+    
     try {
-      const uploadPromise = usersService.uploadProfilePicture(targetUserId, file)
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('TIMEOUT_EXCEEDED')), 15000)
-      })
-      
-      const result = await Promise.race([uploadPromise, timeoutPromise])
+      const result = await usersService.uploadProfilePicture(targetUserId, file, abortControllerRef.current)
+      clearTimeout(abortTimeoutId)
       
       const currentUser = useAuthStore.getState().user
       if (currentUser?.id === targetUserId) {
@@ -106,15 +132,21 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
       if (onSuccess) onSuccess(result.url)
       
       setTimeout(() => {
-        handleClose()
+        onClose() // Usa onClose en lugar de handleClose para no disparar el abort
       }, 2000)
     } catch (err) {
-      if (err.message === 'TIMEOUT_EXCEEDED') {
-        setError('El proceso tardó demasiado (más de 15s). Revisa tu conexión o intenta con una imagen menos pesada.')
+      clearTimeout(abortTimeoutId)
+      
+      if (err.name === 'CanceledError') {
+        setError('El proceso fue cancelado.')
+      } else if (err.message === 'TIMEOUT_EXCEEDED') {
+        setError('El proceso tardó demasiado (más de 8s). S3 no responde o el internet está saturado.')
       } else {
-        setError(err.response?.data?.message || 'Error de red o servidor al intentar conectar con S3.')
+        setError(err.response?.data?.message || 'Falló la conexión con el motor en S3.')
       }
       setIsUploading(false)
+    } finally {
+      abortControllerRef.current = null
     }
   }
 
@@ -147,8 +179,8 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
               </div>
               <button
                 onClick={handleClose}
-                disabled={isUploading}
-                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors disabled:opacity-50"
+                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+                title="Cancelar y Salir"
               >
                 <Icon name="x" size={18} />
               </button>
@@ -212,8 +244,9 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
                           <p className="text-[10px] text-text-muted mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                           
                           <button 
+                            disabled={isUploading}
                             onClick={() => { setFile(null); setPreviewUrl(null); }}
-                            className="mt-3 text-[11px] text-text-secondary hover:text-status-critical transition-colors"
+                            className="mt-3 text-[11px] text-text-secondary hover:text-status-critical transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Eliminar selección
                           </button>
@@ -230,8 +263,9 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
                             o da clic para explorar tus archivos
                           </p>
                           <button
+                            disabled={isUploading}
                             onClick={() => fileInputRef.current?.click()}
-                            className="btn-secondary text-xs px-4 py-2"
+                            className="btn-secondary text-xs px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Examinar PC
                           </button>
@@ -271,8 +305,7 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
               <div className="px-6 py-4 bg-[#14171f] border-t border-white/[0.06] flex items-center justify-end gap-3">
                 <button
                   onClick={handleClose}
-                  disabled={isUploading}
-                  className="px-4 py-2 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
                 >
                   Cancelar
                 </button>
