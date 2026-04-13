@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import KpiCard from '../components/KpiCard'
 import MetricsChart from '../components/MetricsChart'
@@ -19,9 +19,10 @@ const DashboardPage = () => {
   const [timeRange, setTimeRange] = useState('1h')
   const [isExporting, setIsExporting] = useState(false)
   const { showError, showSuccess } = useToast()
+  const queryClient = useQueryClient()
 
   // Métricas más recientes con polling cada 10s
-  const { data: metricsRaw, isLoading: metricsLoading } = useQuery({
+  const { data: metricsRaw, isLoading: metricsLoading, isFetching: metricsFetching } = useQuery({
     queryKey: ['metrics-latest'],
     queryFn: () => metricsService.getLatest().then(r => r.data || []),
     refetchInterval: 10000,
@@ -60,6 +61,7 @@ const DashboardPage = () => {
   const metrics = metricsRaw || []
   const kpis = kpisRaw || {}
   const loading = metricsLoading && kpisLoading && serversLoading
+  const isRefreshing = metricsFetching && !metricsLoading
 
   // Build server status from real data
   const serverStatus = useMemo(() => {
@@ -138,11 +140,10 @@ const DashboardPage = () => {
                 <button
                   key={range}
                   onClick={() => setTimeRange(range)}
-                  className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-all ${
-                    timeRange === range
+                  className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-all ${timeRange === range
                       ? 'bg-accent-cyan/10 text-accent-cyan'
                       : 'text-text-muted hover:text-text-secondary'
-                  }`}
+                    }`}
                 >
                   {range}
                 </button>
