@@ -4,18 +4,11 @@ import Icon from './icons/Icon'
 import { LoadingAnimation } from './animations/StaggerContainer'
 
 const MetricsChart = ({ data = [], loading = false, className = '' }) => {
-  const chartData = data.map((item, index) => {
-    const d = item.timestamp ? new Date(item.timestamp) : null;
-    const timeStr = d 
-      ? `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`
-      : `${index}s`;
-    
-    return {
-      time: index % 5 === 0 ? timeStr : '',
-      cpu: Math.round(item.cpu || 0),
-      ram: Math.round(item.ram || 0),
-    }
-  })
+  const chartData = data.map((item, index) => ({
+    time: index % 5 === 0 ? `${index}s` : '',
+    cpu: item.cpu || 0,
+    ram: item.ram || 0,
+  }))
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -58,16 +58,40 @@ const DashboardPage = () => {
     retry: 2,
   })
 
-  // Procesar métricas para la gráfica (System Performance)
-  // Revertimos el snapshot que ponía solo el "último" punto por servidor. Usamos el historial.
-  const metrics = useMemo(() => {
-    if (!historicalRaw || !Array.isArray(historicalRaw) || historicalRaw.length === 0) return []
-    // Si hay multiples servidores, filtramos los datos de 1 como referencia para la gráfica 
-    // y lo revertimos para flujo cronológico (antiguo -> nuevo)
-    const primaryServerId = historicalRaw[0].server_id
-    return historicalRaw.filter(m => m.server_id === primaryServerId).reverse()
-  }, [historicalRaw])
+  // Estructura Aislada: Acumulador de Telemetría (Live Chart Data)
+  const [liveChartData, setLiveChartData] = useState([])
+  const [hasSeededChart, setHasSeededChart] = useState(false)
 
+  // 1. Sembrado (Seed) Histórico inicial
+  useEffect(() => {
+    if (historicalRaw && historicalRaw.length > 0 && !hasSeededChart) {
+      const primaryServerId = historicalRaw[0]?.server_id
+      if (primaryServerId) {
+        const seedData = historicalRaw.filter(m => m.server_id === primaryServerId).reverse()
+        setLiveChartData(seedData)
+        setHasSeededChart(true)
+      }
+    }
+  }, [historicalRaw, hasSeededChart])
+
+  // 2. Ticker en Tiempo Real cada 10s
+  useEffect(() => {
+    if (metricsRaw && metricsRaw.length > 0 && hasSeededChart) {
+      const primaryMetric = metricsRaw[0]
+      if (primaryMetric) {
+        setLiveChartData(prev => {
+          const last = prev[prev.length - 1]
+          if (last && last.timestamp === primaryMetric.timestamp) return prev
+          
+          const newArr = [...prev, primaryMetric]
+          if (newArr.length > 100) newArr.shift() // Limitar historial visual a 100 puntos
+          return newArr
+        })
+      }
+    }
+  }, [metricsRaw, hasSeededChart])
+
+  const metrics = metricsRaw || []
   const kpis = kpisRaw || {}
   const loading = metricsLoading && kpisLoading && serversLoading
   const isRefreshing = metricsFetching && !metricsLoading
@@ -150,8 +174,8 @@ const DashboardPage = () => {
                   key={range}
                   onClick={() => setTimeRange(range)}
                   className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-all ${timeRange === range
-                      ? 'bg-accent-cyan/10 text-accent-cyan'
-                      : 'text-text-muted hover:text-text-secondary'
+                    ? 'bg-accent-cyan/10 text-accent-cyan'
+                    : 'text-text-muted hover:text-text-secondary'
                     }`}
                 >
                   {range}
@@ -262,7 +286,7 @@ const DashboardPage = () => {
                     </div>
                   </div>
                 </div>
-                <MetricsChart data={metrics} loading={loading} />
+                <MetricsChart data={liveChartData} loading={loading} />
               </GlassCard>
             </StaggerItem>
 
