@@ -87,13 +87,14 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
     setIsUploading(true)
     setError('')
     
+    const controller = new AbortController()
+    const abortTimeoutId = setTimeout(() => {
+      controller.abort()
+    }, 15000) // 15s hard kill switch
+    
     try {
-      const uploadPromise = usersService.uploadProfilePicture(targetUserId, file)
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('TIMEOUT_EXCEEDED')), 15000)
-      })
-      
-      const result = await Promise.race([uploadPromise, timeoutPromise])
+      const result = await usersService.uploadProfilePicture(targetUserId, file, controller)
+      clearTimeout(abortTimeoutId)
       
       const currentUser = useAuthStore.getState().user
       if (currentUser?.id === targetUserId) {
@@ -109,10 +110,12 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
         handleClose()
       }, 2000)
     } catch (err) {
-      if (err.message === 'TIMEOUT_EXCEEDED') {
-        setError('El proceso tardó demasiado (más de 15s). Revisa tu conexión o intenta con una imagen menos pesada.')
+      clearTimeout(abortTimeoutId)
+      
+      if (err.name === 'CanceledError' || err.message === 'TIMEOUT_EXCEEDED') {
+        setError('El proceso tardó demasiado (más de 15s). S3 no responde o el internet está saturado.')
       } else {
-        setError(err.response?.data?.message || 'Error de red o servidor al intentar conectar con S3.')
+        setError(err.response?.data?.message || 'Falló la conexión con el motor en S3.')
       }
       setIsUploading(false)
     }

@@ -25,12 +25,18 @@ const usersService = {
   },
 
   // Subir foto de perfil a S3
-  uploadProfilePicture: async (userId, file) => {
+  uploadProfilePicture: async (userId, file, controller = null) => {
     const formData = new FormData()
     formData.append('file', file)
-    const response = await api.post(`/api/v1/users/${userId}/profile-picture`, formData, {
+    
+    const config = {
       headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    }
+    if (controller) {
+      config.signal = controller.signal
+    }
+    
+    const response = await api.post(`/api/v1/users/${userId}/profile-picture`, formData, config)
     return response.data
   },
 
