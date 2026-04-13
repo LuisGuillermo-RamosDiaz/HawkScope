@@ -90,7 +90,7 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
     const controller = new AbortController()
     const abortTimeoutId = setTimeout(() => {
       controller.abort()
-    }, 15000) // 15s hard kill switch
+    }, 8000) // 8s hard kill switch
     
     try {
       const result = await usersService.uploadProfilePicture(targetUserId, file, controller)
@@ -113,7 +113,7 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
       clearTimeout(abortTimeoutId)
       
       if (err.name === 'CanceledError' || err.message === 'TIMEOUT_EXCEEDED') {
-        setError('El proceso tardó demasiado (más de 15s). S3 no responde o el internet está saturado.')
+        setError('El proceso tardó demasiado (más de 8s). S3 no responde o el internet está saturado.')
       } else {
         setError(err.response?.data?.message || 'Falló la conexión con el motor en S3.')
       }
