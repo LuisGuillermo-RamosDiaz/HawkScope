@@ -122,12 +122,13 @@ public class UserController {
             userRepository.save(user);
 
             // Audit Logging Requirement
+            UUID requesterId = getUserId(authHeader);
             auditService.log(
                 orgId.toString(),
-                id.toString(), // The user being updated
+                requesterId.toString(), // The actor performing the action
                 "Perfil Actualizado",
                 "User",
-                id.toString(),
+                id.toString(), // The ID of the user whose profile was updated
                 user.getEmail(),
                 "{\"message\": \"Cambio de foto de perfil exitoso (S3 Object Created).\"}"
             );

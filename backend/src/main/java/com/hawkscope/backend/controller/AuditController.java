@@ -51,10 +51,12 @@ public class AuditController {
             m.put("details", log.getDetails());
             m.put("errorMessage", log.getErrorMessage());
 
-            // Resolve user email safely
-            if (log.getUserId() != null && !log.getUserId().isEmpty()) {
+            // Resolve user email safely - trimming is required for CHAR(36) columns
+            String rawId = log.getUserId();
+            if (rawId != null && !rawId.trim().isEmpty()) {
                 try {
-                    userRepository.findById(UUID.fromString(log.getUserId()))
+                    UUID userUuid = UUID.fromString(rawId.trim());
+                    userRepository.findById(userUuid)
                         .ifPresentOrElse(
                             u -> m.put("user", u.getEmail()),
                             () -> m.put("user", "system")
