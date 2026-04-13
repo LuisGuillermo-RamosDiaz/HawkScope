@@ -61,37 +61,51 @@ const DashboardPage = () => {
   // Estructura Aislada: Acumulador de Telemetría (Live Chart Data)
   const [liveChartData, setLiveChartData] = useState([])
   const [hasSeededChart, setHasSeededChart] = useState(false)
+  const [trackedServerId, setTrackedServerId] = useState(null)
+
+  // Cuando cambie el filtro de rango en la UI (1h, 6h, etc), liberamos el candado para re-sembrar el Chart
+  useEffect(() => {
+    setHasSeededChart(false)
+  }, [timeRange])
 
   // 1. Sembrado (Seed) Histórico inicial
   useEffect(() => {
     if (historicalRaw !== undefined && !hasSeededChart) {
       if (historicalRaw.length > 0) {
-        const primaryServerId = historicalRaw[0]?.server_id
+        // Aseguramos "anclar" el chart a este servidor para no sufrir efectos de ordenamiento (sorting) de la base de datos
+        const primaryServerId = trackedServerId || historicalRaw[0]?.server_id
         if (primaryServerId) {
+          setTrackedServerId(primaryServerId)
           const seedData = historicalRaw.filter(m => m.server_id === primaryServerId).reverse()
           setLiveChartData(seedData)
         }
+      } else {
+        setLiveChartData([])
       }
       setHasSeededChart(true)
     }
-  }, [historicalRaw, hasSeededChart])
+  }, [historicalRaw, hasSeededChart, trackedServerId])
 
   // 2. Ticker en Tiempo Real cada 10s
   useEffect(() => {
     if (metricsRaw && metricsRaw.length > 0 && hasSeededChart) {
-      const primaryMetric = metricsRaw[0]
-      if (primaryMetric) {
+      // Localizamos estrictamente la métrica nueva de NUESTRO servidor anclado
+      const trackedMetric = trackedServerId 
+        ? metricsRaw.find(m => m.server_id === trackedServerId)
+        : metricsRaw[0]
+
+      if (trackedMetric) {
         setLiveChartData(prev => {
           const last = prev[prev.length - 1]
-          if (last && last.timestamp === primaryMetric.timestamp) return prev
+          if (last && last.timestamp === trackedMetric.timestamp) return prev
           
-          const newArr = [...prev, primaryMetric]
+          const newArr = [...prev, trackedMetric]
           if (newArr.length > 100) newArr.shift() // Limitar historial visual a 100 puntos
           return newArr
         })
       }
     }
-  }, [metricsRaw, hasSeededChart])
+  }, [metricsRaw, hasSeededChart, trackedServerId])
 
   const metrics = metricsRaw || []
   const kpis = kpisRaw || {}
