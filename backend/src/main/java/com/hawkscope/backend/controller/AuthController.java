@@ -56,8 +56,9 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("valid", false));
         }
 
-        Map<String, Object> claims = authService.getClaims(token);
-        return ResponseEntity.ok(Map.of("valid", true, "user", claims));
+        return authService.getMe(token)
+            .map(user -> ResponseEntity.ok(Map.of("valid", true, "user", user)))
+            .orElseGet(() -> ResponseEntity.status(401).body(Map.of("valid", false)));
     }
 
     @PostMapping("/logout")
