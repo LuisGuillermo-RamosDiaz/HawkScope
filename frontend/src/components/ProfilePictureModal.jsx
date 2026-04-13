@@ -88,7 +88,12 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
     setError('')
     
     try {
-      const result = await usersService.uploadProfilePicture(targetUserId, file)
+      const uploadPromise = usersService.uploadProfilePicture(targetUserId, file)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('TIMEOUT_EXCEEDED')), 15000)
+      })
+      
+      const result = await Promise.race([uploadPromise, timeoutPromise])
       
       const currentUser = useAuthStore.getState().user
       if (currentUser?.id === targetUserId) {
@@ -104,7 +109,11 @@ const ProfilePictureModal = ({ isOpen, onClose, targetUserId, onSuccess }) => {
         handleClose()
       }, 2000)
     } catch (err) {
-      setError(err.response?.data?.message || 'Error de red o servidor al intentar conectar con S3.')
+      if (err.message === 'TIMEOUT_EXCEEDED') {
+        setError('El proceso tardó demasiado (más de 15s). Revisa tu conexión o intenta con una imagen menos pesada.')
+      } else {
+        setError(err.response?.data?.message || 'Error de red o servidor al intentar conectar con S3.')
+      }
       setIsUploading(false)
     }
   }

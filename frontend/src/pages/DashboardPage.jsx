@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import KpiCard from '../components/KpiCard'
 import MetricsChart from '../components/MetricsChart'
 import GlassCard from '../components/GlassCard'
@@ -14,6 +15,7 @@ import { StaggerContainer, StaggerItem } from '../components/animations/StaggerC
 import { KpiCardSkeleton, ChartSkeleton } from '../components/Skeleton'
 
 const DashboardPage = () => {
+  const { t } = useTranslation()
   const [timeRange, setTimeRange] = useState('1h')
   const [isExporting, setIsExporting] = useState(false)
   const { showError, showSuccess } = useToast()
@@ -56,6 +58,55 @@ const DashboardPage = () => {
     retry: 2,
   })
 
+  // Estructura Aislada: Acumulador de Telemetría (Live Chart Data)
+  const [liveChartData, setLiveChartData] = useState([])
+  const [hasSeededChart, setHasSeededChart] = useState(false)
+  const [trackedServerId, setTrackedServerId] = useState(null)
+
+  // Cuando cambie el filtro de rango en la UI (1h, 6h, etc), liberamos el candado para re-sembrar el Chart
+  useEffect(() => {
+    setHasSeededChart(false)
+  }, [timeRange])
+
+  // 1. Sembrado (Seed) Histórico inicial
+  useEffect(() => {
+    if (historicalRaw !== undefined && !hasSeededChart) {
+      if (historicalRaw.length > 0) {
+        // Aseguramos "anclar" el chart a este servidor para no sufrir efectos de ordenamiento (sorting) de la base de datos
+        const primaryServerId = trackedServerId || historicalRaw[0]?.server_id
+        if (primaryServerId) {
+          setTrackedServerId(primaryServerId)
+          const seedData = historicalRaw.filter(m => m.server_id === primaryServerId).reverse()
+          setLiveChartData(seedData)
+        }
+      } else {
+        setLiveChartData([])
+      }
+      setHasSeededChart(true)
+    }
+  }, [historicalRaw, hasSeededChart, trackedServerId])
+
+  // 2. Ticker en Tiempo Real cada 10s
+  useEffect(() => {
+    if (metricsRaw && metricsRaw.length > 0 && hasSeededChart) {
+      // Localizamos estrictamente la métrica nueva de NUESTRO servidor anclado
+      const trackedMetric = trackedServerId 
+        ? metricsRaw.find(m => m.server_id === trackedServerId)
+        : metricsRaw[0]
+
+      if (trackedMetric) {
+        setLiveChartData(prev => {
+          const last = prev[prev.length - 1]
+          if (last && last.timestamp === trackedMetric.timestamp) return prev
+          
+          const newArr = [...prev, trackedMetric]
+          if (newArr.length > 100) newArr.shift() // Limitar historial visual a 100 puntos
+          return newArr
+        })
+      }
+    }
+  }, [metricsRaw, hasSeededChart, trackedServerId])
+
   const metrics = metricsRaw || []
   const kpis = kpisRaw || {}
   const loading = metricsLoading && kpisLoading && serversLoading
@@ -85,12 +136,6 @@ const DashboardPage = () => {
     return { healthy: 0, warning: 0, critical: 0, offline: 0, total: 0 }
   }, [serversRaw])
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['metrics-latest'] })
-    queryClient.invalidateQueries({ queryKey: ['kpis'] })
-    queryClient.invalidateQueries({ queryKey: ['servers'] })
-    queryClient.invalidateQueries({ queryKey: ['historical'] })
-  }
 
   const handleExport = async () => {
     setIsExporting(true)
@@ -129,12 +174,12 @@ const DashboardPage = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-text-primary mb-0.5">
-              Command Center
+              {t('dashboard.title')}
             </h1>
             <p className="text-xs text-text-secondary flex items-center gap-2">
-              <span>Monitoreo en tiempo real</span>
+              <span>{t('dashboard.subtitle')}</span>
               <span className="text-text-muted">-</span>
-              <span className="font-mono text-accent-cyan text-[10px]">HawkScope SOC v2.0</span>
+              <span className="font-mono text-accent-cyan text-[10px]">{t('dashboard.version')}</span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -144,11 +189,10 @@ const DashboardPage = () => {
                 <button
                   key={range}
                   onClick={() => setTimeRange(range)}
-                  className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-all ${
-                    timeRange === range
-                      ? 'bg-accent-cyan/10 text-accent-cyan'
-                      : 'text-text-muted hover:text-text-secondary'
-                  }`}
+                  className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-all ${timeRange === range
+                    ? 'bg-accent-cyan/10 text-accent-cyan'
+                    : 'text-text-muted hover:text-text-secondary'
+                    }`}
                 >
                   {range}
                 </button>
@@ -166,22 +210,7 @@ const DashboardPage = () => {
               <motion.div animate={isExporting ? { y: [-2, 2, -2] } : {}} transition={{ repeat: isExporting ? Infinity : 0, duration: 1 }}>
                 <Icon name="download-cloud" size={13} />
               </motion.div>
-              <span className="hidden sm:inline">{isExporting ? 'S3...' : 'Exportar S3'}</span>
-            </motion.button>
-            <motion.button
-              onClick={handleRefresh}
-              className="btn-secondary flex items-center gap-2 text-xs px-3 py-1.5"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              disabled={isRefreshing}
-            >
-              <motion.div
-                animate={isRefreshing ? { rotate: 360 } : { rotate: 0 }}
-                transition={{ repeat: isRefreshing ? Infinity : 0, duration: 1, ease: 'linear' }}
-              >
-                <Icon name="refresh-cw" size={13} />
-              </motion.div>
-              <span className="hidden sm:inline">{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+              <span className="hidden sm:inline">{isExporting ? 'S3...' : t('common.export') + ' S3'}</span>
             </motion.button>
           </div>
         </div>
@@ -191,7 +220,7 @@ const DashboardPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StaggerItem>
           <KpiCard
-            title="Servidores Activos"
+            title={t('dashboard.activeServers')}
             value={serverStatus.healthy}
             subtitle={`/ ${serverStatus.total}`}
             iconName="server"
@@ -200,16 +229,16 @@ const DashboardPage = () => {
         </StaggerItem>
         <StaggerItem>
           <KpiCard
-            title="Alertas Criticas"
+            title={t('dashboard.criticalAlerts')}
             value={serverStatus.critical}
-            subtitle="activas"
+            subtitle={t('security.activeOf') || "activas"}
             iconName="alert-triangle"
             status={serverStatus.critical > 0 ? 'danger' : 'normal'}
           />
         </StaggerItem>
         <StaggerItem>
           <KpiCard
-            title="Uptime Global"
+            title={t('dashboard.globalUptime')}
             value={kpis.availability || (serverStatus.total > 0 ? Math.round((serverStatus.total - (serverStatus.offline || 0)) / serverStatus.total * 1000) / 10 : 0)}
             subtitle="%"
             iconName="activity"
@@ -218,7 +247,7 @@ const DashboardPage = () => {
         </StaggerItem>
         <StaggerItem>
           <KpiCard
-            title="CPU Promedio"
+            title="CPU / RAM"
             value={kpis.avgCpu || 0}
             subtitle="%"
             iconName="zap"
@@ -258,8 +287,8 @@ const DashboardPage = () => {
                       <Icon name="activity" size={14} className="text-accent-cyan" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-text-primary">Rendimiento del Sistema</h3>
-                      <p className="text-[10px] text-text-muted">Ultima hora - auto-refresh 10s</p>
+                      <h3 className="text-sm font-semibold text-text-primary">{t('dashboard.systemPerformance')}</h3>
+                      <p className="text-[10px] text-text-muted">{t('dashboard.lastHour')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-xs">
@@ -273,7 +302,7 @@ const DashboardPage = () => {
                     </div>
                   </div>
                 </div>
-                <MetricsChart data={metrics} loading={loading} />
+                <MetricsChart data={liveChartData} loading={loading} />
               </GlassCard>
             </StaggerItem>
 
@@ -342,25 +371,6 @@ const DashboardPage = () => {
         </GlassCard>
       </StaggerItem>
 
-      {/* Refresh indicator */}
-      <AnimatePresence>
-        {isRefreshing && (
-          <motion.div
-            className="fixed bottom-6 right-6 glass-card px-4 py-2 glow-cyan flex items-center gap-2 z-50"
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-          >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
-            >
-              <Icon name="refresh-cw" size={12} className="text-accent-cyan" />
-            </motion.div>
-            <span className="text-[10px] text-accent-cyan font-medium font-mono">Syncing...</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </StaggerContainer>
   )
 }
