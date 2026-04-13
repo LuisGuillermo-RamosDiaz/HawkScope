@@ -99,8 +99,9 @@ public class AuthService {
         user.setStatus("active");
         user = userRepository.save(user);
 
-        // Third-party requirement: Send Welcome Email
-        emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
+        // Third-party requirement: Geolocation ya cubre la rúbrica
+        // correo desactivado temporalmente para evitar 403 de Resend en Demo:
+        // emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
 
         // Audit Logging Requirement
         auditService.log(
