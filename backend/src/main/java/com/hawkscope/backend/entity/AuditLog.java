@@ -30,7 +30,7 @@ public class AuditLog {
     @Column(name = "resource_name")
     private String resourceName;
 
-    @Column(name = "ip_address", nullable = false, length = 45)
+    @Column(name = "ip_address", nullable = false, length = 100)
     private String ipAddress;
 
     @Column(name = "user_agent", columnDefinition = "TEXT")

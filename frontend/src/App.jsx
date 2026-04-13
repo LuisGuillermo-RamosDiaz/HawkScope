@@ -1,8 +1,10 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import PageLoader from './components/PageLoader'
+import useAuthStore from './store/authStore'
+import authService from './services/authService'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -30,6 +32,30 @@ const ProtectedLayout = ({ children, allowedRoles }) => (
 )
 
 function App() {
+  const { isAuthenticated, user, setUser, logout } = useAuthStore()
+
+  useEffect(() => {
+    const verifySession = async () => {
+      if (isAuthenticated && user?.token && !user.token.endsWith('.mock-signature')) {
+        try {
+          const res = await authService.verifyToken()
+          if (res && res.valid && res.user) {
+            setUser(res.user)
+          } else {
+            // Force logout if invalid (demoted/deleted remotely)
+            logout()
+          }
+        } catch (error) {
+          // If verify fails (401), we assume session expired
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            logout()
+          }
+        }
+      }
+    }
+    verifySession()
+  }, [isAuthenticated]) // Run once on mount or when auth state changes
+
   return (
     <Routes>
       {/* Public routes */}

@@ -190,6 +190,21 @@ public class AuthService {
         return jwtService.isValid(token);
     }
 
+    public Optional<UserInfoDto> getMe(String token) {
+        if (!jwtService.isValid(token)) return Optional.empty();
+        Claims claims = jwtService.parseToken(token);
+        String email = claims.getSubject();
+        
+        return userRepository.findByEmail(email).map(user -> new UserInfoDto(
+            user.getId().toString(),
+            user.getEmail(),
+            user.getRole(),
+            user.getFullName(),
+            user.getOrganization().getApiKey(),
+            user.getProfilePictureUrl()
+        ));
+    }
+
     public Map<String, Object> getClaims(String token) {
         Claims claims = jwtService.parseToken(token);
         return Map.of(
