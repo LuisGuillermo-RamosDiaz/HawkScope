@@ -107,7 +107,6 @@ const DashboardPage = () => {
     }
   }, [metricsRaw, hasSeededChart, trackedServerId])
 
-  const metrics = metricsRaw || []
   const kpis = kpisRaw || {}
   const loading = metricsLoading && kpisLoading && serversLoading
   const isRefreshing = metricsFetching && !metricsLoading
