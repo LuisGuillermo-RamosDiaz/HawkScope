@@ -64,13 +64,15 @@ const DashboardPage = () => {
 
   // 1. Sembrado (Seed) Histórico inicial
   useEffect(() => {
-    if (historicalRaw && historicalRaw.length > 0 && !hasSeededChart) {
-      const primaryServerId = historicalRaw[0]?.server_id
-      if (primaryServerId) {
-        const seedData = historicalRaw.filter(m => m.server_id === primaryServerId).reverse()
-        setLiveChartData(seedData)
-        setHasSeededChart(true)
+    if (historicalRaw !== undefined && !hasSeededChart) {
+      if (historicalRaw.length > 0) {
+        const primaryServerId = historicalRaw[0]?.server_id
+        if (primaryServerId) {
+          const seedData = historicalRaw.filter(m => m.server_id === primaryServerId).reverse()
+          setLiveChartData(seedData)
+        }
       }
+      setHasSeededChart(true)
     }
   }, [historicalRaw, hasSeededChart])
 
